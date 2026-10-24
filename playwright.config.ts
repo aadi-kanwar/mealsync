@@ -23,10 +23,12 @@ export default defineConfig({
     { name: "phone", use: { ...devices["Pixel 7"] } },
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
   ],
+  // A production build, not `next dev`: the dev server compiles each page on
+  // its first visit, which can take longer than a test's timeouts.
   webServer: {
-    command: `npx next dev -p ${PORT}`,
+    command: `npx next build && npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}/signin`,
     reuseExistingServer: true,
-    timeout: 120_000,
+    timeout: 300_000,
   },
 });

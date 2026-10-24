@@ -134,7 +134,7 @@ npm run dev                 # website on http://localhost:3000
 npm run lint
 npm run typecheck           # website + backend
 npm test                    # backend tests (no deployment needed)
-npm run test:e2e            # Playwright; full flow needs E2E_SEED_PASSWORD (see playwright.config.ts)
+npm run test:e2e            # Playwright against a production build; full flow needs E2E_SEED_PASSWORD (see playwright.config.ts)
 npm run codegen:offline     # regenerate convex/_generated without a deployment
 npx convex run setup:createProperty '{"organizationName":"…","propertyName":"…"}'
 npx convex run seed:dev     # dev only: TEST accounts +919000000001…6
