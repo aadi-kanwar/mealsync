@@ -5,8 +5,9 @@ import { formatInTimeZone } from "date-fns-tz";
  * Master prompt E2E 1 (Phase 1 part): a new user signs up, completes their
  * profile, sees "waiting for approval"; the Warden approves them; they then
  * see they're approved and can choose meals. Also covers E2E 2-4: submit all
- * four meals, change one before the cutoff, and closed meals can't be
- * changed. Needs a seeded development Convex deployment.
+ * four meals, change one before the cutoff, closed meals can't be changed,
+ * and E2E 5: the Warden sees counts and non-responders. Needs a seeded
+ * development Convex deployment.
  */
 const seedPassword = process.env.E2E_SEED_PASSWORD;
 const WARDEN_PHONE = "9000000002"; // TEST Warden from `npx convex run seed:dev`
@@ -36,7 +37,12 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await resident.getByLabel("Type the password again").fill(password);
   await resident.getByRole("button", { name: "Create account" }).click();
 
-  await expect(resident.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+  // The app allows 30 new sign-ups per hour (abuse protection). Many test
+  // runs in one hour reach it; say so plainly instead of timing out.
+  const welcome = resident.getByRole("heading", { name: /Welcome/ });
+  const limited = resident.getByText(/Too many attempts/);
+  await expect(welcome.or(limited)).toBeVisible();
+  test.skip(await limited.isVisible(), "The hourly limit on new sign-ups was reached; run again later.");
   await resident.getByLabel("Full name").fill(name);
   await resident.getByLabel("Room number").fill("E2E-1");
   await resident.getByRole("button", { name: "Continue" }).click();
@@ -90,6 +96,20 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await expect(choose("Lunch", "No")).toBeChecked();
   await expect(choose("Snacks", "No")).toBeChecked();
   await expect(choose("Breakfast", "Yes")).toBeChecked();
+
+  // E2E 5: the Warden sees counts and who hasn't answered. The new resident
+  // answered every meal two days ahead, but nothing three days ahead.
+  const isoIn = (days: number) => formatInTimeZone(new Date(Date.now() + days * 86_400_000), "Asia/Kolkata", "yyyy-MM-dd");
+  await warden.goto(`/staff?date=${isoIn(2)}`);
+  const lunchCounts = warden.getByRole("region", { name: /^Lunch/ });
+  await expect(lunchCounts.getByText("Eligible (N)")).toBeVisible();
+  await expect(lunchCounts.getByText("Not answered (U)")).toBeVisible();
+  await expect(warden.getByText("These counts don't add up")).toHaveCount(0);
+  await warden.goto(`/staff/non-responders?date=${isoIn(2)}`);
+  await expect(warden.getByRole("list", { name: "Lunch: not answered" })).toBeVisible();
+  await expect(warden.getByText(name, { exact: true })).toHaveCount(0);
+  await warden.goto(`/staff/non-responders?date=${isoIn(3)}`);
+  await expect(warden.getByRole("list", { name: "Lunch: not answered" }).getByText(name, { exact: true })).toBeVisible();
 
   // E2E 4: today's meals have passed their cutoff and can't be changed.
   // (The server's own refusal is covered by the backend tests.)

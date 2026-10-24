@@ -38,7 +38,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   const items = visibleNav(me.staffRoles);
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 border-b border-border bg-surface">
+      <header className="sticky top-0 z-20 border-b border-border bg-surface print:hidden">
         <div className="flex h-14 items-center justify-between gap-3 px-4">
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="font-semibold">MealSync</span>
@@ -52,11 +52,11 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       </header>
       <div className="flex flex-1">
         <StaffSidebar items={items} />
-        <main className="min-w-0 flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-10">
+        <main className="min-w-0 flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-10 print:p-0">
           <div className="mx-auto flex max-w-5xl flex-col gap-6">{children}</div>
         </main>
       </div>
-      <BottomNav items={items} />
+      <BottomNav items={items.filter((item) => item.mobile !== false)} />
     </div>
   );
 }

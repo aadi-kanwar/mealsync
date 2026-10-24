@@ -3,6 +3,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   vActorRole,
+  vBufferRule,
   vCutoffRule,
   vKitchenReportStatus,
   vLeaveStatus,
@@ -196,9 +197,11 @@ export default defineSchema({
     nonResponderCount: v.number(),
     eligibleCount: v.number(),
     bufferApplied: v.number(),
+    bufferRule: v.optional(vBufferRule), // how bufferApplied was worked out
     finalTarget: v.number(),
     status: vKitchenReportStatus,
     createdAt: v.number(),
+    createdBy: v.optional(v.id("users")),
     finalizedBy: v.optional(v.id("users")),
     finalizedAt: v.optional(v.number()),
   }).index("by_service_version", ["mealServiceId", "version"]),

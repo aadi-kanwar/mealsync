@@ -26,7 +26,7 @@ export function StaffSidebar({
     <nav
       aria-label={preview ? "Staff (preview)" : "Staff"}
       className={cn(
-        "w-60 shrink-0 flex-col justify-between border-r border-border bg-surface p-3",
+        "w-60 shrink-0 flex-col justify-between border-r border-border bg-surface p-3 print:hidden",
         preview ? "flex" : "hidden md:flex",
       )}
     >
@@ -72,7 +72,7 @@ export function BottomNav({
     <nav
       aria-label={preview ? "Main (preview)" : "Main"}
       className={cn(
-        "border-t border-border bg-surface",
+        "border-t border-border bg-surface print:hidden",
         !preview && "fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)]",
         !preview && !everywhere && "md:hidden",
       )}

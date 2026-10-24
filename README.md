@@ -4,21 +4,43 @@ MealSync lets PG residents say, before a cutoff time, which of tomorrow's meals
 they will eat, so the kitchen cooks the right amount and wastes less food.
 
 The full plan is in [MASTER_PROMPT.md](MASTER_PROMPT.md). The app is being
-built in phases. **Phase 1 (foundation) and Phase 2 (choosing meals) are
-done.** Staff counts and the kitchen report arrive in Phase 3.
+built in phases. **Phases 1–3 are done** (foundation, choosing meals, staff
+and kitchen). The activity log screen, residents, leave, corrections and
+settings arrive in Phase 4.
 
 ---
 
 ## For the PG owner (no technical knowledge needed)
 
-### What works today (Phases 1 and 2)
+### What works today (Phases 1–3)
 
 - **Create an account / sign in** with a mobile number and a password.
 - **New residents wait for approval.** After signing up, a person enters their
   name and room number and then sees "Waiting for approval". They can't choose
   meals and aren't counted until a Warden or Admin approves them.
 - **Staff screens** (`/staff`):
-  - *Overview*: how many sign-ups are waiting.
+  - *Dashboard*: pick a day (Yesterday / Today / Tomorrow or any date). For
+    each meal it shows four separate numbers: **Eligible (N)**, **Yes (Y)**,
+    **No (O)** and **Not answered (U)**, whether choices are still open, the
+    final target and the report status. Numbers update live. If N doesn't
+    equal Y + O + U, a red warning says so. Also shows sign-ups waiting.
+  - *Non-responders*: who hasn't answered each meal, so the Warden can remind
+    them. The Warden and Admin see names and rooms; the Kitchen sees rooms only.
+    Phone numbers are never shown here.
+  - *Kitchen report*: the same counts, plus:
+    - **Buffer**: extra portions, either a fixed number ("+3") or a
+      percentage of those who didn't answer ("+10%", rounded up).
+    - **Finalize**: after the cutoff, the Kitchen (or Admin) confirms
+      "cook for N". The server recounts at that moment; if the numbers
+      changed, it asks you to check again.
+    - **Version history**: every finalize and reopen is a new version; old
+      versions never change. Only the Admin can **Reopen** a finalized meal.
+    - **Record actuals** (on the day or after): prepared, served, kept as
+      leftover, thrown away, and the thrown-away weight only if it was
+      actually weighed. "Not served" (prepared − served) is shown separately;
+      leftovers are not counted as waste.
+    - **Print** and **Download CSV** (opens in Excel). Every CSV download is
+      recorded in the audit log.
   - *New sign-ups* (Admin, Warden): approve (confirm room and start date) or
     reject each person.
   - *Staff* (Admin only): give someone the Admin, Warden or Kitchen role, or
@@ -52,8 +74,8 @@ done.** Staff counts and the kitchen report arrive in Phase 3.
 | Role | Can do (so far) |
 |---|---|
 | Admin | Everything, including managing staff. |
-| Warden | Approve or reject new sign-ups. |
-| Kitchen | See how many sign-ups are waiting (no names or phone numbers). |
+| Warden | Approve or reject new sign-ups; see counts, non-responders (names and rooms) and the kitchen report; download the CSV. |
+| Kitchen | See counts and non-responders (rooms only); set the buffer and finalize the target; record actuals; print and download the CSV. |
 | Resident | Sign up, sign in, see their approval status; once approved, choose meals before the cutoff and see their own history. |
 
 ### First-time setup (one time only)
@@ -127,15 +149,20 @@ convex/
   users.ts             me, completeProfile
   meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
   crons.ts             daily job creating the next 7 days of meal services
+  kitchen.ts           day (dashboard), nonResponders, finalize, reopen,
+                       reportVersions, recordActuals, exportDayCsv
   residents.ts         listPending, pendingCount, approve, reject
   staff.ts             list, grantRole, revokeRole (Admin)
   setup.ts             createProperty, makeFirstAdmin (internal, one-time)
   seed.ts              development-only test data (internal, env-guarded)
   lib/                 permission wrappers, validators, input rules, audit,
-                       meals.ts (service generation, eligibility), time.ts (cutoffs)
+                       meals.ts (service generation, eligibility), time.ts (cutoffs),
+                       headcount.ts (N/Y/O/U, buffer), csv.ts
   tests/               backend tests (*.test.ts)
 src/
-  app/                 pages: /signin /onboarding /pending /home /upcoming /history /staff /design
+  app/                 pages: /signin /onboarding /pending /home /upcoming /history /design
+                       /staff (dashboard) /staff/non-responders /staff/kitchen
+                       /staff/signups /staff/team
   components/ui/       design-system components
   proxy.ts             redirects signed-out visitors to /signin
 e2e/                   Playwright tests

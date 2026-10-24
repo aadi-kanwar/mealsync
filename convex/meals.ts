@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { formatInTimeZone } from "date-fns-tz";
 import type { Doc } from "./_generated/dataModel";
 import { appError } from "./lib/errors";
-import { internalMutation, residentMutation, residentQuery } from "./lib/functions";
+import { internalMutation, residentMutation, residentQuery, staffMutation } from "./lib/functions";
 import { isoDateSchema } from "./lib/inputRules";
 import {
   approvedLeavesOf,
@@ -45,6 +45,17 @@ export const ensureUpcoming = residentMutation({
   args: {},
   handler: async (ctx) => {
     const { property } = ctx.resident;
+    const now = Date.now();
+    return await ensureServices(ctx, property, horizonDates(now, property.timezone), now);
+  },
+});
+
+/** The same on-demand step for staff screens (dashboard, kitchen report). */
+export const ensureUpcomingForStaff = staffMutation({
+  roles: ["warden", "kitchen"],
+  args: {},
+  handler: async (ctx) => {
+    const { property } = ctx.staff;
     const now = Date.now();
     return await ensureServices(ctx, property, horizonDates(now, property.timezone), now);
   },

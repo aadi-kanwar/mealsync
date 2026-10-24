@@ -73,3 +73,9 @@ export const vKitchenReportStatus = v.union(
   v.literal("finalized"),
   v.literal("needs_review"),
 );
+
+/** "+N portions" or "+N% of non-responders", added on top of the Yes count. */
+export const vBufferRule = v.object({
+  kind: v.union(v.literal("fixed"), v.literal("percent_of_unanswered")),
+  value: v.number(),
+});

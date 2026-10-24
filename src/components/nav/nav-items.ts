@@ -1,10 +1,12 @@
 import {
   CalendarDays,
+  ChefHat,
   ClipboardCheck,
   History,
   LayoutDashboard,
   Palette,
   Sun,
+  UserRoundX,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -16,13 +18,17 @@ export type NavItem = {
   icon: LucideIcon;
   /** Roles that see this item. Admin sees everything. */
   roles: readonly StaffRole[];
+  /** Shown in the phone's bottom bar (default true); the sidebar shows everything. */
+  mobile?: boolean;
 };
 
 export const STAFF_NAV: NavItem[] = [
-  { href: "/staff", label: "Overview", icon: LayoutDashboard, roles: ["warden", "kitchen"] },
+  { href: "/staff", label: "Dashboard", icon: LayoutDashboard, roles: ["warden", "kitchen"] },
+  { href: "/staff/non-responders", label: "Non-responders", icon: UserRoundX, roles: ["warden", "kitchen"] },
+  { href: "/staff/kitchen", label: "Kitchen report", icon: ChefHat, roles: ["warden", "kitchen"] },
   { href: "/staff/signups", label: "New sign-ups", icon: ClipboardCheck, roles: ["warden"] },
   { href: "/staff/team", label: "Staff", icon: Users, roles: ["admin"] },
-  { href: "/design", label: "Design system", icon: Palette, roles: ["warden", "kitchen"] },
+  { href: "/design", label: "Design system", icon: Palette, roles: ["warden", "kitchen"], mobile: false },
 ];
 
 export function visibleNav(roles: readonly StaffRole[]): NavItem[] {
