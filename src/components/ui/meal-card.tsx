@@ -27,6 +27,7 @@ export function MealCard({
   locked = false,
   lockedMessage = "The cutoff has passed. Contact the Warden to change this.",
   onChange,
+  children,
 }: {
   name: string;
   time: string;
@@ -34,6 +35,8 @@ export function MealCard({
   locked?: boolean;
   lockedMessage?: string;
   onChange?: (value: YesNo) => void;
+  /** Extra lines under the choice: cutoff, saved time, staff changes. */
+  children?: React.ReactNode;
 }) {
   const status: MealStatus = locked ? "locked" : value === null ? "unanswered" : value;
   return (
@@ -47,6 +50,7 @@ export function MealCard({
       </div>
       <YesNoToggle label={`${name}: will you eat?`} value={value} disabled={locked} onChange={onChange} />
       {locked ? <p className="text-sm text-foreground-muted">{lockedMessage}</p> : null}
+      {children ? <div className="flex flex-col gap-1 text-sm text-foreground-secondary">{children}</div> : null}
     </Card>
   );
 }

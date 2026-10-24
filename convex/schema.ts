@@ -167,7 +167,8 @@ export default defineSchema({
   })
     .index("by_property_createdAt", ["propertyId", "createdAt"])
     .index("by_property_serviceDate", ["propertyId", "serviceDate"])
-    .index("by_resident_createdAt", ["residentId", "createdAt"]),
+    .index("by_resident_createdAt", ["residentId", "createdAt"])
+    .index("by_resident_service", ["residentId", "mealServiceId", "createdAt"]),
 
   leaves: defineTable({
     organizationId: v.id("organizations"),

@@ -10,15 +10,18 @@
 
 import type * as auth from "../auth.js";
 import type * as authLimits from "../authLimits.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_inputRules from "../lib/inputRules.js";
+import type * as lib_meals from "../lib/meals.js";
 import type * as lib_property from "../lib/property.js";
 import type * as lib_staffRoles from "../lib/staffRoles.js";
 import type * as lib_time from "../lib/time.js";
 import type * as lib_validators from "../lib/validators.js";
+import type * as meals from "../meals.js";
 import type * as residents from "../residents.js";
 import type * as seed from "../seed.js";
 import type * as setup from "../setup.js";
@@ -34,15 +37,18 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authLimits: typeof authLimits;
+  crons: typeof crons;
   http: typeof http;
   "lib/audit": typeof lib_audit;
   "lib/errors": typeof lib_errors;
   "lib/functions": typeof lib_functions;
   "lib/inputRules": typeof lib_inputRules;
+  "lib/meals": typeof lib_meals;
   "lib/property": typeof lib_property;
   "lib/staffRoles": typeof lib_staffRoles;
   "lib/time": typeof lib_time;
   "lib/validators": typeof lib_validators;
+  meals: typeof meals;
   residents: typeof residents;
   seed: typeof seed;
   setup: typeof setup;

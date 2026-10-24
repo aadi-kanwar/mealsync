@@ -1,10 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
+import { formatInTimeZone } from "date-fns-tz";
 
 /**
  * Master prompt E2E 1 (Phase 1 part): a new user signs up, completes their
  * profile, sees "waiting for approval"; the Warden approves them; they then
- * see they're approved. Needs a seeded development Convex deployment.
- * (Submitting meals is added in Phase 2.)
+ * see they're approved and can choose meals. Also covers E2E 2-4: submit all
+ * four meals, change one before the cutoff, and closed meals can't be
+ * changed. Needs a seeded development Convex deployment.
  */
 const seedPassword = process.env.E2E_SEED_PASSWORD;
 const WARDEN_PHONE = "9000000002"; // TEST Warden from `npx convex run seed:dev`
@@ -60,7 +62,44 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
 
   // The resident's open "waiting" screen moves on by itself.
   await expect(resident.getByRole("heading", { name: `Hello, ${name}` })).toBeVisible({ timeout: 15_000 });
-  await expect(resident.getByText("Room E2E-2")).toBeVisible();
+  await expect(resident.getByText("Room E2E-2", { exact: false })).toBeVisible();
+
+  // The day after tomorrow is always open (its cutoff is tomorrow evening),
+  // whatever time of day the test runs.
+  await resident.getByRole("link", { name: "This week" }).click();
+  const dayAfter = formatInTimeZone(new Date(Date.now() + 2 * 86_400_000), "Asia/Kolkata", "EEE, d MMM");
+  const day = resident.getByRole("region", { name: dayAfter });
+  const choose = (meal: string, answer: "Yes" | "No") =>
+    day.getByRole("radiogroup", { name: `${meal}: will you eat?` }).getByRole("radio", { name: answer });
+
+  // E2E 2: submit all four meals.
+  await choose("Breakfast", "Yes").click();
+  await choose("Lunch", "Yes").click();
+  await choose("Snacks", "No").click();
+  await choose("Dinner", "Yes").click();
+  await expect(resident.getByText("4 changes not saved yet")).toBeVisible();
+  await resident.getByRole("button", { name: "Save" }).click();
+  await expect(resident.getByText(/^Saved at \d/)).toBeVisible();
+
+  // E2E 3: change a choice before the cutoff; it stays changed after a reload.
+  await choose("Lunch", "No").click();
+  await expect(resident.getByText("1 change not saved yet")).toBeVisible();
+  await resident.getByRole("button", { name: "Save" }).click();
+  await expect(resident.getByText(/^Saved at \d/)).toBeVisible();
+  await resident.reload();
+  await expect(choose("Lunch", "No")).toBeChecked();
+  await expect(choose("Snacks", "No")).toBeChecked();
+  await expect(choose("Breakfast", "Yes")).toBeChecked();
+
+  // E2E 4: today's meals have passed their cutoff and can't be changed.
+  // (The server's own refusal is covered by the backend tests.)
+  const today = resident.getByRole("region", { name: /^Today/ });
+  await expect(today.getByText("Choices for this day are closed.", { exact: false })).toBeVisible();
+  await expect(today.getByRole("radio")).toHaveCount(0);
+
+  // History is reachable and shows a friendly screen for a brand-new resident.
+  await resident.getByRole("link", { name: "History" }).click();
+  await expect(resident.getByRole("heading", { name: "History" })).toBeVisible();
 
   await residentContext.close();
   await wardenContext.close();

@@ -1,4 +1,13 @@
-import { ClipboardCheck, LayoutDashboard, Palette, Users, type LucideIcon } from "lucide-react";
+import {
+  CalendarDays,
+  ClipboardCheck,
+  History,
+  LayoutDashboard,
+  Palette,
+  Sun,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import type { StaffRole } from "@convex/lib/validators";
 
 export type NavItem = {
@@ -20,3 +29,10 @@ export function visibleNav(roles: readonly StaffRole[]): NavItem[] {
   if (roles.includes("admin")) return STAFF_NAV;
   return STAFF_NAV.filter((item) => item.roles.some((r) => roles.includes(r)));
 }
+
+/** Resident screens (bottom bar on every screen size). */
+export const RESIDENT_NAV: NavItem[] = [
+  { href: "/home", label: "Tomorrow", icon: Sun, roles: [] },
+  { href: "/upcoming", label: "This week", icon: CalendarDays, roles: [] },
+  { href: "/history", label: "History", icon: History, roles: [] },
+];

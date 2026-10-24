@@ -255,7 +255,10 @@ function DesignSystem() {
 
       <Section title="Meal cards">
         <div className="grid gap-3 sm:grid-cols-2">
-          <MealCard name="Breakfast" time="8:00 AM" value={mealChoice} onChange={setMealChoice} />
+          <MealCard name="Breakfast" time="8:00 AM" value={mealChoice} onChange={setMealChoice}>
+            <p>Choose by 9:00 PM today</p>
+            <p>Saved 8:14 PM today</p>
+          </MealCard>
           <MealCard name="Lunch" time="1:00 PM" value="no" onChange={() => {}} />
           <MealCard name="Snacks" time="5:00 PM" value={null} onChange={() => {}} />
           <MealCard name="Dinner" time="8:30 PM" value="yes" locked />

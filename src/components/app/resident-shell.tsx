@@ -1,7 +1,20 @@
+import { RESIDENT_NAV } from "@/components/nav/nav-items";
+import { BottomNav } from "@/components/nav/staff-nav";
 import { SignOutButton } from "./session";
 
-/** Simple frame for resident screens: app name, PG name, and logout on every screen. */
-export function ResidentShell({ pgName, children }: { pgName?: string | null; children: React.ReactNode }) {
+/**
+ * Simple frame for resident screens: app name, PG name, and logout on every
+ * screen. Approved residents also get the bottom navigation (`nav`).
+ */
+export function ResidentShell({
+  pgName,
+  nav = false,
+  children,
+}: {
+  pgName?: string | null;
+  nav?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-border bg-surface">
@@ -13,7 +26,16 @@ export function ResidentShell({ pgName, children }: { pgName?: string | null; ch
           <SignOutButton />
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-6">{children}</main>
+      <main
+        className={
+          nav
+            ? "mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 pt-6 pb-[calc(3.5rem+env(safe-area-inset-bottom))]"
+            : "mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-6"
+        }
+      >
+        {children}
+      </main>
+      {nav ? <BottomNav items={RESIDENT_NAV} everywhere /> : null}
     </div>
   );
 }

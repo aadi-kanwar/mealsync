@@ -4,14 +4,14 @@ MealSync lets PG residents say, before a cutoff time, which of tomorrow's meals
 they will eat, so the kitchen cooks the right amount and wastes less food.
 
 The full plan is in [MASTER_PROMPT.md](MASTER_PROMPT.md). The app is being
-built in phases. **Phase 1 (foundation) is done.** Choosing meals arrives in
-Phase 2.
+built in phases. **Phase 1 (foundation) and Phase 2 (choosing meals) are
+done.** Staff counts and the kitchen report arrive in Phase 3.
 
 ---
 
 ## For the PG owner (no technical knowledge needed)
 
-### What works today (Phase 1)
+### What works today (Phases 1 and 2)
 
 - **Create an account / sign in** with a mobile number and a password.
 - **New residents wait for approval.** After signing up, a person enters their
@@ -23,6 +23,25 @@ Phase 2.
     reject each person.
   - *Staff* (Admin only): give someone the Admin, Warden or Kitchen role, or
     take it away. There must always be at least one Admin.
+- **Choosing meals** (approved residents):
+  - *Tomorrow* (the home screen): tomorrow's four meals, a Yes/No for each,
+    and one **Save** button. It shows the cutoff ("Choose by 9:00 PM today")
+    with a countdown, and a warning when the cutoff is near and something
+    is still unanswered. After saving it shows "Saved at 8:14 PM".
+  - *This week*: today and the next 7 days, so residents can choose ahead.
+  - *History*: past days, what was chosen and when, and whether a staff
+    member changed it (with the reason).
+  - A meal nobody answered stays **Not answered**; it is never treated as No.
+  - After the cutoff a meal is locked. The server checks the time with its
+    own clock, so changing the phone's clock doesn't help.
+  - Every real change is written to the permanent **activity log** (who,
+    what, before → after, when). Pressing Save without changing anything
+    adds nothing.
+  - Meals are prepared for the coming week automatically every night
+    (and on demand if a resident opens the app first).
+  - Default timings: Breakfast 8:00 AM, Lunch 1:00 PM, Snacks 5:00 PM,
+    Dinner 8:30 PM, each to be chosen by 9:00 PM the evening before.
+    Changing these from a Settings screen comes in Phase 4.
 - **Design system** (`/design`): a reference page of every colour, text size
   and building block the app uses.
 - Every approval, rejection and role change is written to a permanent
@@ -35,7 +54,7 @@ Phase 2.
 | Admin | Everything, including managing staff. |
 | Warden | Approve or reject new sign-ups. |
 | Kitchen | See how many sign-ups are waiting (no names or phone numbers). |
-| Resident | Sign up, sign in, see their approval status. |
+| Resident | Sign up, sign in, see their approval status; once approved, choose meals before the cutoff and see their own history. |
 
 ### First-time setup (one time only)
 
@@ -106,14 +125,17 @@ convex/
   auth.ts              phone + password provider
   authLimits.ts        sign-in rate limits (internal)
   users.ts             me, completeProfile
+  meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
+  crons.ts             daily job creating the next 7 days of meal services
   residents.ts         listPending, pendingCount, approve, reject
   staff.ts             list, grantRole, revokeRole (Admin)
   setup.ts             createProperty, makeFirstAdmin (internal, one-time)
   seed.ts              development-only test data (internal, env-guarded)
-  lib/                 permission wrappers, validators, input rules, audit
+  lib/                 permission wrappers, validators, input rules, audit,
+                       meals.ts (service generation, eligibility), time.ts (cutoffs)
   tests/               backend tests (*.test.ts)
 src/
-  app/                 pages: /signin /onboarding /pending /home /staff /design
+  app/                 pages: /signin /onboarding /pending /home /upcoming /history /staff /design
   components/ui/       design-system components
   proxy.ts             redirects signed-out visitors to /signin
 e2e/                   Playwright tests

@@ -57,15 +57,24 @@ export function StaffSidebar({
   );
 }
 
-/** Mobile: a bottom bar. Hidden from `md` up. */
-export function BottomNav({ items, preview = false }: { items: NavItem[]; preview?: boolean }) {
+/** Mobile: a bottom bar. Hidden from `md` up unless `everywhere` (resident screens have no sidebar). */
+export function BottomNav({
+  items,
+  preview = false,
+  everywhere = false,
+}: {
+  items: NavItem[];
+  preview?: boolean;
+  everywhere?: boolean;
+}) {
   const pathname = usePathname();
   return (
     <nav
       aria-label={preview ? "Main (preview)" : "Main"}
       className={cn(
         "border-t border-border bg-surface",
-        preview ? "" : "fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] md:hidden",
+        !preview && "fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)]",
+        !preview && !everywhere && "md:hidden",
       )}
     >
       <ul className="mx-auto flex max-w-lg">

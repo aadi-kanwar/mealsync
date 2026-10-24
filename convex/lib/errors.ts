@@ -18,7 +18,9 @@ export type AppErrorCode =
   | "SIGN_IN_FAILED"
   | "TOO_MANY_ATTEMPTS"
   | "INVALID_PHONE"
-  | "WEAK_PASSWORD";
+  | "WEAK_PASSWORD"
+  | "CUTOFF_PASSED"
+  | "NOT_ELIGIBLE";
 
 export type AppErrorData = { code: AppErrorCode; message: string };
 
@@ -37,6 +39,8 @@ export const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   TOO_MANY_ATTEMPTS: "Too many attempts. Please wait 15 minutes and try again.",
   INVALID_PHONE: "Enter a valid mobile number.",
   WEAK_PASSWORD: "Please choose a stronger password.",
+  CUTOFF_PASSED: "The time to choose this meal has passed. Contact the Warden to change it.",
+  NOT_ELIGIBLE: "You aren't counted for meals on that day.",
 };
 
 export function appError(code: AppErrorCode, message?: string): ConvexError<AppErrorData> {
