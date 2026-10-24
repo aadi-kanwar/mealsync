@@ -22,7 +22,7 @@ export type AppErrorCode =
 
 export type AppErrorData = { code: AppErrorCode; message: string };
 
-const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
+export const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   NOT_SIGNED_IN: "Please sign in to continue.",
   PROFILE_REQUIRED: "Please finish setting up your profile first.",
   PROFILE_EXISTS: "Your profile is already set up.",
