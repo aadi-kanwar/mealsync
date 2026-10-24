@@ -23,7 +23,6 @@ import { localDateString } from "./lib/time";
 const vKind = v.union(
   v.literal("admin"),
   v.literal("warden"),
-  v.literal("kitchen"),
   v.literal("resident_active"),
   v.literal("resident_pending"),
 );
@@ -31,7 +30,6 @@ const vKind = v.union(
 export const TEST_USERS = [
   { phone: "+919000000001", displayName: "TEST Admin", roomNumber: "OFFICE", kind: "admin" },
   { phone: "+919000000002", displayName: "TEST Warden", roomNumber: "OFFICE", kind: "warden" },
-  { phone: "+919000000003", displayName: "TEST Kitchen", roomNumber: "KITCHEN", kind: "kitchen" },
   { phone: "+919000000004", displayName: "TEST Resident A", roomNumber: "101", kind: "resident_active" },
   { phone: "+919000000005", displayName: "TEST Resident B", roomNumber: "102", kind: "resident_active" },
   { phone: "+919000000006", displayName: "TEST Pending C", roomNumber: "103", kind: "resident_pending" },
@@ -127,7 +125,7 @@ export const attachTestUser = internalMutation({
       });
     }
 
-    if (args.kind === "admin" || args.kind === "warden" || args.kind === "kitchen") {
+    if (args.kind === "admin" || args.kind === "warden") {
       const roles = await ctx.db
         .query("staffRoles")
         .withIndex("by_property_user", (q) =>

@@ -16,7 +16,7 @@ import { formatClock, formatDay, formatWhen } from "@/lib/format";
 
 export default function NonRespondersPage() {
   return (
-    <RequireStaff roles={["warden", "kitchen"]}>
+    <RequireStaff roles={["warden"]}>
       <Suspense fallback={<LoadingState />}>
         <NonResponders />
       </Suspense>
@@ -27,7 +27,7 @@ export default function NonRespondersPage() {
 function NonResponders() {
   const now = useNow();
   const { date, setDate, today, timezone } = useStaffDate();
-  const data = useQuery(api.kitchen.nonResponders, { date });
+  const data = useQuery(api.dashboard.nonResponders, { date });
   return (
     <>
       <EnsureMeals />
@@ -42,9 +42,6 @@ function NonResponders() {
         <EmptyState title="No meals on this day" />
       ) : (
         <>
-          {!data.showNames ? (
-            <p className="text-sm text-foreground-secondary">Room numbers only. The Warden can see names.</p>
-          ) : null}
           {data.meals.map((meal) => (
             <section key={meal.serviceId} aria-labelledby={`nr-${meal.serviceId}`} className="flex flex-col gap-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -67,10 +64,8 @@ function NonResponders() {
                   <ul className="divide-y divide-border" aria-label={`${meal.name}: not answered`}>
                     {meal.people.map((person) => (
                       <li key={person.residentId} className="flex items-center justify-between gap-3 px-4 py-3">
-                        <span className="font-medium">{person.displayName ?? `Room ${person.roomNumber}`}</span>
-                        {person.displayName !== null ? (
-                          <span className="text-sm text-foreground-secondary">Room {person.roomNumber}</span>
-                        ) : null}
+                        <span className="font-medium">{person.displayName}</span>
+                        <span className="text-sm text-foreground-secondary">Room {person.roomNumber}</span>
                       </li>
                     ))}
                   </ul>

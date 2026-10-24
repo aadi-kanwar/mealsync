@@ -11,10 +11,9 @@
 import type * as auth from "../auth.js";
 import type * as authLimits from "../authLimits.js";
 import type * as crons from "../crons.js";
+import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
-import type * as kitchen from "../kitchen.js";
 import type * as lib_audit from "../lib/audit.js";
-import type * as lib_csv from "../lib/csv.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_headcount from "../lib/headcount.js";
@@ -41,10 +40,9 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authLimits: typeof authLimits;
   crons: typeof crons;
+  dashboard: typeof dashboard;
   http: typeof http;
-  kitchen: typeof kitchen;
   "lib/audit": typeof lib_audit;
-  "lib/csv": typeof lib_csv;
   "lib/errors": typeof lib_errors;
   "lib/functions": typeof lib_functions;
   "lib/headcount": typeof lib_headcount;

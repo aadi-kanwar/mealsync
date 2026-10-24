@@ -1,69 +1,53 @@
 # MealSync
 
 MealSync lets PG residents say, before a cutoff time, which of tomorrow's meals
-they will eat, so the kitchen cooks the right amount and wastes less food.
+they will eat, so the PG knows the headcount for every meal.
 
-The full plan is in [MASTER_PROMPT.md](MASTER_PROMPT.md). The app is being
-built in phases. **Phases 1–3 are done** (foundation, choosing meals, staff
-and kitchen). The activity log screen, residents, leave, corrections and
-settings arrive in Phase 4.
+The original plan is in [MASTER_PROMPT.md](MASTER_PROMPT.md). By the owner's
+decision the tool is kept simple: **three kinds of users (Admin, Warden,
+Resident) and the meal headcount only.** There is no kitchen role and no
+cooking targets, buffers, actuals or kitchen reports.
 
 ---
 
 ## For the PG owner (no technical knowledge needed)
 
-### What works today (Phases 1–3)
+### What works today
 
 - **Create an account / sign in** with a mobile number and a password.
 - **New residents wait for approval.** After signing up, a person enters their
   name and room number and then sees "Waiting for approval". They can't choose
   meals and aren't counted until a Warden or Admin approves them.
-- **Staff screens** (`/staff`):
-  - *Dashboard*: pick a day (Yesterday / Today / Tomorrow or any date). For
-    each meal it shows four separate numbers: **Eligible (N)**, **Yes (Y)**,
-    **No (O)** and **Not answered (U)**, whether choices are still open, the
-    final target and the report status. Numbers update live. If N doesn't
-    equal Y + O + U, a red warning says so. Also shows sign-ups waiting.
-  - *Non-responders*: who hasn't answered each meal, so the Warden can remind
-    them. The Warden and Admin see names and rooms; the Kitchen sees rooms only.
-    Phone numbers are never shown here.
-  - *Kitchen report*: the same counts, plus:
-    - **Buffer**: extra portions, either a fixed number ("+3") or a
-      percentage of those who didn't answer ("+10%", rounded up).
-    - **Finalize**: after the cutoff, the Kitchen (or Admin) confirms
-      "cook for N". The server recounts at that moment; if the numbers
-      changed, it asks you to check again.
-    - **Version history**: every finalize and reopen is a new version; old
-      versions never change. Only the Admin can **Reopen** a finalized meal.
-    - **Record actuals** (on the day or after): prepared, served, kept as
-      leftover, thrown away, and the thrown-away weight only if it was
-      actually weighed. "Not served" (prepared − served) is shown separately;
-      leftovers are not counted as waste.
-    - **Print** and **Download CSV** (opens in Excel). Every CSV download is
-      recorded in the audit log.
-  - *New sign-ups* (Admin, Warden): approve (confirm room and start date) or
-    reject each person.
-  - *Staff* (Admin only): give someone the Admin, Warden or Kitchen role, or
-    take it away. There must always be at least one Admin.
 - **Choosing meals** (approved residents):
-  - *Tomorrow* (the home screen): tomorrow's four meals, a Yes/No for each,
-    and one **Save** button. It shows the cutoff ("Choose by 9:00 PM today")
-    with a countdown, and a warning when the cutoff is near and something
-    is still unanswered. After saving it shows "Saved at 8:14 PM".
-  - *This week*: today and the next 7 days, so residents can choose ahead.
+  - *Tomorrow* (the home screen): tomorrow's date, "Choose by 9:00 PM today"
+    with the time left, and an "x of 4 answered" bar. Each meal is one row
+    with Yes / No buttons; **Yes to all** / **No to all** do the whole day in
+    one tap. Then **Save** ("Saved at 8:14 PM"). Close to the cutoff the box
+    turns amber if something is still unanswered.
+  - *This week*: a row of day tabs for the next 7 days. Each tab shows how
+    many meals are still unanswered (or a ✓ when done, a lock when closed).
+    Tap a day, choose, and one **Save** saves every day you changed.
   - *History*: past days, what was chosen and when, and whether a staff
-    member changed it (with the reason).
+    member changed it.
   - A meal nobody answered stays **Not answered**; it is never treated as No.
   - After the cutoff a meal is locked. The server checks the time with its
     own clock, so changing the phone's clock doesn't help.
-  - Every real change is written to the permanent **activity log** (who,
-    what, before → after, when). Pressing Save without changing anything
-    adds nothing.
-  - Meals are prepared for the coming week automatically every night
-    (and on demand if a resident opens the app first).
+  - Every real change is written to a permanent **activity log** (who, what,
+    before → after, when). Pressing Save without changing anything adds nothing.
+  - Meals are prepared for the coming week automatically every night (and on
+    demand if someone opens the app first).
   - Default timings: Breakfast 8:00 AM, Lunch 1:00 PM, Snacks 5:00 PM,
     Dinner 8:30 PM, each to be chosen by 9:00 PM the evening before.
-    Changing these from a Settings screen comes in Phase 4.
+- **Staff screens** (`/staff`, Admin and Warden):
+  - *Dashboard* (the headcount): pick a day (Yesterday / Today / Tomorrow or
+    any date). For each meal it shows how many residents said **Yes**, said
+    **No**, and have **Not answered**, plus whether choices are still open.
+    Numbers update live. Also shows sign-ups waiting.
+  - *Non-responders*: names and rooms of who hasn't answered each meal, so
+    the Warden can remind them. Phone numbers are never shown here.
+  - *New sign-ups*: approve (confirm room and start date) or reject.
+  - *Staff* (Admin only): make someone an Admin or Warden, or take it away.
+    There must always be at least one Admin.
 - **Design system** (`/design`): a reference page of every colour, text size
   and building block the app uses.
 - Every approval, rejection and role change is written to a permanent
@@ -71,11 +55,10 @@ settings arrive in Phase 4.
 
 ### Roles
 
-| Role | Can do (so far) |
+| Role | Can do |
 |---|---|
-| Admin | Everything, including managing staff. |
-| Warden | Approve or reject new sign-ups; see counts, non-responders (names and rooms) and the kitchen report; download the CSV. |
-| Kitchen | See counts and non-responders (rooms only); set the buffer and finalize the target; record actuals; print and download the CSV. |
+| Admin | Everything the Warden can, plus managing staff. |
+| Warden | Approve or reject new sign-ups; see the headcount and non-responders. |
 | Resident | Sign up, sign in, see their approval status; once approved, choose meals before the cutoff and see their own history. |
 
 ### First-time setup (one time only)
@@ -149,20 +132,18 @@ convex/
   users.ts             me, completeProfile
   meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
   crons.ts             daily job creating the next 7 days of meal services
-  kitchen.ts           day (dashboard), nonResponders, finalize, reopen,
-                       reportVersions, recordActuals, exportDayCsv
+  dashboard.ts         day (headcount per meal), nonResponders
   residents.ts         listPending, pendingCount, approve, reject
   staff.ts             list, grantRole, revokeRole (Admin)
   setup.ts             createProperty, makeFirstAdmin (internal, one-time)
   seed.ts              development-only test data (internal, env-guarded)
   lib/                 permission wrappers, validators, input rules, audit,
                        meals.ts (service generation, eligibility), time.ts (cutoffs),
-                       headcount.ts (N/Y/O/U, buffer), csv.ts
+                       headcount.ts (who is counted; Yes / No / Not answered)
   tests/               backend tests (*.test.ts)
 src/
   app/                 pages: /signin /onboarding /pending /home /upcoming /history /design
-                       /staff (dashboard) /staff/non-responders /staff/kitchen
-                       /staff/signups /staff/team
+                       /staff (dashboard) /staff/non-responders /staff/signups /staff/team
   components/ui/       design-system components
   proxy.ts             redirects signed-out visitors to /signin
 e2e/                   Playwright tests
@@ -190,5 +171,5 @@ npx convex run seed:dev     # dev only: TEST accounts +919000000001…6
 ```
 
 Development TEST accounts created by `seed:dev` (password = `DEV_SEED_PASSWORD`):
-Admin `9000000001`, Warden `9000000002`, Kitchen `9000000003`, active
+Admin `9000000001`, Warden `9000000002`, active
 residents `9000000004` and `9000000005`, pending resident `9000000006`.

@@ -90,10 +90,3 @@ export async function headcountFor(
     nonResponders,
   };
 }
-
-export type BufferRule = { kind: "fixed" | "percent_of_unanswered"; value: number };
-
-/** Extra portions on top of the Yes count: "+3", or "+10% of non-responders" (rounded up). */
-export function bufferFor(rule: BufferRule, unanswered: number): number {
-  return rule.kind === "fixed" ? rule.value : Math.ceil((rule.value / 100) * unanswered);
-}

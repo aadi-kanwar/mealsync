@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CircleDashed, Clock, Info, Lock, Plus, Trash2, Users, X } from "lucide-react";
+import { Check, CircleDashed, Clock, Coffee, Cookie, Info, Lock, Moon, Plus, Trash2, Users, Utensils, X } from "lucide-react";
 import { useState } from "react";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { STAFF_NAV } from "@/components/nav/nav-items";
@@ -13,7 +13,7 @@ import { Field } from "@/components/ui/field";
 import { FilterBar, SearchInput } from "@/components/ui/filter-bar";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
-import { MealCard } from "@/components/ui/meal-card";
+import { MealRow } from "@/components/ui/meal-row";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -31,7 +31,7 @@ export default function DesignPage() {
   if (process.env.NODE_ENV === "development") return <DesignSystem />;
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <RequireStaff roles={["warden", "kitchen"]}>
+      <RequireStaff roles={["warden"]}>
         <DesignSystem />
       </RequireStaff>
     </div>
@@ -214,7 +214,6 @@ function DesignSystem() {
               <NativeSelect {...p} defaultValue="warden">
                 <option value="admin">Admin</option>
                 <option value="warden">Warden</option>
-                <option value="kitchen">Kitchen</option>
               </NativeSelect>
             )}
           </Field>
@@ -253,16 +252,21 @@ function DesignSystem() {
         </div>
       </Section>
 
-      <Section title="Meal cards">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <MealCard name="Breakfast" time="8:00 AM" value={mealChoice} onChange={setMealChoice}>
-            <p>Choose by 9:00 PM today</p>
-            <p>Saved 8:14 PM today</p>
-          </MealCard>
-          <MealCard name="Lunch" time="1:00 PM" value="no" onChange={() => {}} />
-          <MealCard name="Snacks" time="5:00 PM" value={null} onChange={() => {}} />
-          <MealCard name="Dinner" time="8:30 PM" value="yes" locked />
-        </div>
+      <Section title="Meal rows">
+        <Card className="max-w-lg">
+          <ul className="divide-y divide-border">
+            <MealRow icon={Coffee} name="Breakfast" time="8:00 AM" value={mealChoice} onChange={setMealChoice}>
+              <span className="font-medium text-warning">Not saved yet</span>
+            </MealRow>
+            <MealRow icon={Utensils} name="Lunch" time="1:00 PM" value="no" onChange={() => {}} />
+            <MealRow icon={Cookie} name="Snacks" time="5:00 PM" value={null} onChange={() => {}}>
+              <span className="font-medium text-warning">Not answered</span>
+            </MealRow>
+            <MealRow icon={Moon} name="Dinner" time="8:30 PM" value="yes" locked>
+              <span className="text-foreground-secondary">Closed. Contact the Warden to change it.</span>
+            </MealRow>
+          </ul>
+        </Card>
       </Section>
 
       <Section title="Status badges (icon + text, never colour alone)">
@@ -383,9 +387,9 @@ function DesignSystem() {
         <Card>
           <CardBody>
             <PageHeader
-              title="Kitchen report"
+              title="Dashboard"
               description="Tuesday, 3 November"
-              actions={<Button variant="secondary">Print</Button>}
+              actions={<Button variant="secondary">Non-responders</Button>}
             />
           </CardBody>
         </Card>

@@ -43,7 +43,7 @@ export async function grantStaffRole(
 
   // A staff member's own un-approved resident sign-up would otherwise sit in
   // the "New sign-ups" list. Close it (approved residents are left alone:
-  // a resident may also work in the kitchen).
+  // a resident may also be a Warden).
   const resident = await getResidentRecord(ctx, property._id, targetUserId);
   if (resident !== null && resident.status === "pending") {
     await ctx.db.patch(resident._id, { status: "inactive" });

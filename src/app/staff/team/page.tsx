@@ -29,11 +29,10 @@ import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
 
-const ROLE_LABEL: Record<StaffRole, string> = { admin: "Admin", warden: "Warden", kitchen: "Kitchen" };
+const ROLE_LABEL: Record<StaffRole, string> = { admin: "Admin", warden: "Warden" };
 const ROLE_HELP: Record<StaffRole, string> = {
-  admin: "Everything, including settings and staff.",
-  warden: "Approves sign-ups, manages residents and corrections.",
-  kitchen: "Meal counts, cooking targets and actuals. Can't see phone numbers.",
+  admin: "Everything, including managing staff.",
+  warden: "Approves sign-ups and sees the meal headcount and non-responders.",
 };
 
 export default function TeamPage() {

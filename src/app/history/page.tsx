@@ -5,7 +5,7 @@ import { History as HistoryIcon } from "lucide-react";
 import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
-import { DayHeading, DaySummary } from "@/components/app/meal-planner";
+import { DayHeading, DaySummary } from "@/components/app/meal-shared";
 import { ResidentPage, type ResidentContext } from "@/components/app/resident-page";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";

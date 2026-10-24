@@ -8,7 +8,7 @@ import { BottomNav, StaffSidebar } from "@/components/nav/staff-nav";
 import { LoadingState } from "@/components/ui/skeleton";
 import { NotAuthorizedState } from "@/components/ui/states";
 
-const ROLE_LABEL = { admin: "Admin", warden: "Warden", kitchen: "Kitchen" } as const;
+const ROLE_LABEL = { admin: "Admin", warden: "Warden" } as const;
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const me = useMe();

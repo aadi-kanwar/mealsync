@@ -50,9 +50,9 @@ export const ensureUpcoming = residentMutation({
   },
 });
 
-/** The same on-demand step for staff screens (dashboard, kitchen report). */
+/** The same on-demand step for staff screens (dashboard, non-responders). */
 export const ensureUpcomingForStaff = staffMutation({
-  roles: ["warden", "kitchen"],
+  roles: ["warden"],
   args: {},
   handler: async (ctx) => {
     const { property } = ctx.staff;

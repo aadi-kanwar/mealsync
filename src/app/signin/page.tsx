@@ -86,7 +86,7 @@ export default function SignInPage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 px-4 py-10">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">MealSync</h1>
-        <p className="text-foreground-secondary">Tell the kitchen which meals you&apos;ll eat.</p>
+        <p className="text-foreground-secondary">Tell the PG which meals you&apos;ll eat.</p>
       </div>
       <div role="tablist" aria-label="Sign in or create account" className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
         {(

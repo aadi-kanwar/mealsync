@@ -103,8 +103,8 @@ describe("approval before counting", () => {
 
   test("a staff member with no resident record is not a resident", async () => {
     const { t } = await setup();
-    const kitchen = await createStaff(t, "kitchen");
-    expect(await errorCode(kitchen.as.run((ctx) => requireActiveResident(ctx)))).toBe("FORBIDDEN");
+    const warden = await createStaff(t, "warden");
+    expect(await errorCode(warden.as.run((ctx) => requireActiveResident(ctx)))).toBe("FORBIDDEN");
   });
 
   test("Warden approves with room and start date; approval is audited", async () => {
@@ -248,30 +248,12 @@ describe("role checks", () => {
   test("a resident cannot make themselves staff", async () => {
     const { t } = await setup();
     const person = await createActiveResident(t);
-    for (const role of ["admin", "warden", "kitchen"] as const) {
+    for (const role of ["admin", "warden"] as const) {
       expect(await errorCode(person.as.mutation(api.staff.grantRole, { phone: person.phone, role }))).toBe(
         "FORBIDDEN",
       );
     }
     expect((await person.as.query(api.users.me, {}))?.staffRoles).toEqual([]);
-  });
-
-  test("Kitchen sees the waiting count but not the sign-up list with phone numbers", async () => {
-    const { t } = await setup();
-    const kitchen = await createStaff(t, "kitchen");
-    await createSignedUp(t);
-    expect(await kitchen.as.query(api.residents.pendingCount, {})).toBe(1);
-    expect(await errorCode(kitchen.as.query(api.residents.listPending, {}))).toBe("FORBIDDEN");
-    const person = await createSignedUp(t);
-    expect(
-      await errorCode(
-        kitchen.as.mutation(api.residents.approve, {
-          residentId: person.residentId,
-          roomNumber: "1",
-          validFrom: "2026-11-01",
-        }),
-      ),
-    ).toBe("FORBIDDEN");
   });
 
   test("Warden can't manage staff; only Admin can", async () => {
@@ -280,7 +262,7 @@ describe("role checks", () => {
     const person = await createSignedUp(t);
     expect(await errorCode(warden.as.query(api.staff.list, {}))).toBe("FORBIDDEN");
     expect(
-      await errorCode(warden.as.mutation(api.staff.grantRole, { phone: person.phone, role: "kitchen" })),
+      await errorCode(warden.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden" })),
     ).toBe("FORBIDDEN");
     expect(
       await errorCode(warden.as.mutation(api.staff.grantRole, { phone: warden.phone, role: "admin" })),
@@ -290,7 +272,7 @@ describe("role checks", () => {
   test("Admin passes every role check", async () => {
     const { t } = await setup();
     const admin = await createStaff(t, "admin");
-    for (const roles of [["warden"], ["kitchen"], ["admin"]] as const) {
+    for (const roles of [["warden"], ["admin"]] as const) {
       const viewer = await admin.as.run((ctx) => requireRole(ctx, roles));
       expect(viewer.roles).toEqual(["admin"]);
     }
@@ -329,18 +311,18 @@ describe("staff management (Admin)", () => {
   test("grant a role to a signed-up person; their pending sign-up is closed; all audited", async () => {
     const { t } = await setup();
     const admin = await createStaff(t, "admin");
-    const person = await createSignedUp(t, "Cook", "K");
-    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "kitchen" });
+    const person = await createSignedUp(t, "New Warden", "W");
+    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden" });
 
     const me = await person.as.query(api.users.me, {});
-    expect(me?.staffRoles).toEqual(["kitchen"]);
+    expect(me?.staffRoles).toEqual(["warden"]);
     expect(me?.resident?.status).toBe("inactive");
     expect(await admin.as.query(api.residents.pendingCount, {})).toBe(0);
 
     const actions = (await t.run((ctx) => ctx.db.query("auditLogs").collect())).map((a) => a.action);
     expect(actions).toEqual(expect.arrayContaining(["staff.role_granted", "resident.withdrawn_for_staff"]));
     expect(
-      await errorCode(admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "kitchen" })),
+      await errorCode(admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden" })),
     ).toBe("CONFLICT");
   });
 
@@ -348,7 +330,7 @@ describe("staff management (Admin)", () => {
     const { t } = await setup();
     const admin = await createStaff(t, "admin");
     const person = await createActiveResident(t);
-    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "kitchen" });
+    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden" });
     expect((await person.as.query(api.users.me, {}))?.resident?.status).toBe("active");
   });
 

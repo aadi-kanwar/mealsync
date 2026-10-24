@@ -160,8 +160,8 @@ describe("meal service generation", () => {
     const { t } = await setup();
     const pending = await createSignedUp(t);
     expect(await errorCode(pending.as.mutation(api.meals.ensureUpcoming, {}))).toBe("RESIDENT_NOT_ACTIVE");
-    const kitchen = await createStaff(t, "kitchen");
-    expect(await errorCode(kitchen.as.mutation(api.meals.ensureUpcoming, {}))).toBe("FORBIDDEN");
+    const warden = await createStaff(t, "warden");
+    expect(await errorCode(warden.as.mutation(api.meals.ensureUpcoming, {}))).toBe("FORBIDDEN");
   });
 });
 
@@ -456,8 +456,8 @@ describe("a resident's own days", () => {
     expect(await errorCode(pending.as.query(api.meals.myDays, { startDate: TODAY, days: 1 }))).toBe(
       "RESIDENT_NOT_ACTIVE",
     );
-    const kitchen = await createStaff(t, "kitchen");
-    expect(await errorCode(kitchen.as.query(api.meals.myDays, { startDate: TODAY, days: 1 }))).toBe("FORBIDDEN");
+    const warden = await createStaff(t, "warden");
+    expect(await errorCode(warden.as.query(api.meals.myDays, { startDate: TODAY, days: 1 }))).toBe("FORBIDDEN");
     expect(await errorCode(t.query(api.meals.myDays, { startDate: TODAY, days: 1 }))).toBe("NOT_SIGNED_IN");
   });
 });

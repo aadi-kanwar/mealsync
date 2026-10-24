@@ -67,14 +67,17 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await expect(row).toHaveCount(0);
 
   // The resident's open "waiting" screen moves on by itself.
-  await expect(resident.getByRole("heading", { name: `Hello, ${name}` })).toBeVisible({ timeout: 15_000 });
-  await expect(resident.getByText("Room E2E-2", { exact: false })).toBeVisible();
+  await expect(resident.getByText(`Hello, ${name} · Room E2E-2`)).toBeVisible({ timeout: 15_000 });
+  await expect(resident.getByRole("heading", { name: /^Tomorrow/ })).toBeVisible();
 
   // The day after tomorrow is always open (its cutoff is tomorrow evening),
   // whatever time of day the test runs.
   await resident.getByRole("link", { name: "This week" }).click();
-  const dayAfter = formatInTimeZone(new Date(Date.now() + 2 * 86_400_000), "Asia/Kolkata", "EEE, d MMM");
-  const day = resident.getByRole("region", { name: dayAfter });
+  const dayAfter = formatInTimeZone(new Date(Date.now() + 2 * 86_400_000), "Asia/Kolkata", "EEEE d MMMM");
+  const pickDay = () => resident.getByRole("tab", { name: new RegExp(`^${dayAfter}:`) }).click();
+  await pickDay();
+  const day = resident.getByRole("tabpanel");
+  await expect(day.getByRole("heading", { name: dayAfter })).toBeVisible();
   const choose = (meal: string, answer: "Yes" | "No") =>
     day.getByRole("radiogroup", { name: `${meal}: will you eat?` }).getByRole("radio", { name: answer });
 
@@ -93,6 +96,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await resident.getByRole("button", { name: "Save" }).click();
   await expect(resident.getByText(/^Saved at \d/)).toBeVisible();
   await resident.reload();
+  await pickDay();
   await expect(choose("Lunch", "No")).toBeChecked();
   await expect(choose("Snacks", "No")).toBeChecked();
   await expect(choose("Breakfast", "Yes")).toBeChecked();
@@ -102,20 +106,21 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   const isoIn = (days: number) => formatInTimeZone(new Date(Date.now() + days * 86_400_000), "Asia/Kolkata", "yyyy-MM-dd");
   await warden.goto(`/staff?date=${isoIn(2)}`);
   const lunchCounts = warden.getByRole("region", { name: /^Lunch/ });
-  await expect(lunchCounts.getByText("Eligible (N)")).toBeVisible();
-  await expect(lunchCounts.getByText("Not answered (U)")).toBeVisible();
-  await expect(warden.getByText("These counts don't add up")).toHaveCount(0);
+  for (const label of ["Yes", "No", "Not answered"]) {
+    await expect(lunchCounts.getByText(label, { exact: true })).toBeVisible();
+  }
+  await expect(lunchCounts.getByText(/residents? counted for this meal/)).toBeVisible();
+  await expect(warden.getByText("These numbers don't add up")).toHaveCount(0);
   await warden.goto(`/staff/non-responders?date=${isoIn(2)}`);
   await expect(warden.getByRole("list", { name: "Lunch: not answered" })).toBeVisible();
   await expect(warden.getByText(name, { exact: true })).toHaveCount(0);
   await warden.goto(`/staff/non-responders?date=${isoIn(3)}`);
   await expect(warden.getByRole("list", { name: "Lunch: not answered" }).getByText(name, { exact: true })).toBeVisible();
 
-  // E2E 4: today's meals have passed their cutoff and can't be changed.
-  // (The server's own refusal is covered by the backend tests.)
-  const today = resident.getByRole("region", { name: /^Today/ });
-  await expect(today.getByText("Choices for this day are closed.", { exact: false })).toBeVisible();
-  await expect(today.getByRole("radio")).toHaveCount(0);
+  // E2E 4: today's meals have passed their cutoff, so today isn't offered
+  // for changes. (The server's own refusal is covered by the backend tests.)
+  await expect(resident.getByRole("tab", { name: /^Today/ })).toHaveCount(0);
+  await expect(resident.getByRole("tab")).toHaveCount(7);
 
   // History is reachable and shows a friendly screen for a brand-new resident.
   await resident.getByRole("link", { name: "History" }).click();

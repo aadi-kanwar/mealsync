@@ -47,9 +47,9 @@ export const listPending = staffQuery({
   },
 });
 
-/** Number of sign-ups waiting. Any staff role (no personal details). */
+/** Number of sign-ups waiting. Admin/Warden. */
 export const pendingCount = staffQuery({
-  roles: ["warden", "kitchen"],
+  roles: ["warden"],
   args: {},
   handler: async (ctx) => {
     const pending = await ctx.db

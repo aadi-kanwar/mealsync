@@ -2,12 +2,8 @@ import { v, type Infer } from "convex/values";
 
 export const vRecordStatus = v.union(v.literal("active"), v.literal("inactive"));
 
-export const STAFF_ROLES = ["admin", "warden", "kitchen"] as const;
-export const vStaffRole = v.union(
-  v.literal("admin"),
-  v.literal("warden"),
-  v.literal("kitchen"),
-);
+export const STAFF_ROLES = ["admin", "warden"] as const;
+export const vStaffRole = v.union(v.literal("admin"), v.literal("warden"));
 export type StaffRole = Infer<typeof vStaffRole>;
 
 export const vResidentStatus = v.union(
@@ -67,15 +63,3 @@ export const vLeaveStatus = v.union(
   v.literal("approved"),
   v.literal("rejected"),
 );
-
-export const vKitchenReportStatus = v.union(
-  v.literal("draft"),
-  v.literal("finalized"),
-  v.literal("needs_review"),
-);
-
-/** "+N portions" or "+N% of non-responders", added on top of the Yes count. */
-export const vBufferRule = v.object({
-  kind: v.union(v.literal("fixed"), v.literal("percent_of_unanswered")),
-  value: v.number(),
-});

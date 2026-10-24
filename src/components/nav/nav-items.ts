@@ -1,6 +1,5 @@
 import {
   CalendarDays,
-  ChefHat,
   ClipboardCheck,
   History,
   LayoutDashboard,
@@ -23,12 +22,11 @@ export type NavItem = {
 };
 
 export const STAFF_NAV: NavItem[] = [
-  { href: "/staff", label: "Dashboard", icon: LayoutDashboard, roles: ["warden", "kitchen"] },
-  { href: "/staff/non-responders", label: "Non-responders", icon: UserRoundX, roles: ["warden", "kitchen"] },
-  { href: "/staff/kitchen", label: "Kitchen report", icon: ChefHat, roles: ["warden", "kitchen"] },
+  { href: "/staff", label: "Dashboard", icon: LayoutDashboard, roles: ["warden"] },
+  { href: "/staff/non-responders", label: "Non-responders", icon: UserRoundX, roles: ["warden"] },
   { href: "/staff/signups", label: "New sign-ups", icon: ClipboardCheck, roles: ["warden"] },
   { href: "/staff/team", label: "Staff", icon: Users, roles: ["admin"] },
-  { href: "/design", label: "Design system", icon: Palette, roles: ["warden", "kitchen"], mobile: false },
+  { href: "/design", label: "Design system", icon: Palette, roles: ["warden"], mobile: false },
 ];
 
 export function visibleNav(roles: readonly StaffRole[]): NavItem[] {

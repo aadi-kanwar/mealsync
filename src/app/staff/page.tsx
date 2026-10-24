@@ -20,7 +20,7 @@ import { formatDay } from "@/lib/format";
 
 export default function StaffDashboard() {
   return (
-    <RequireStaff roles={["warden", "kitchen"]}>
+    <RequireStaff roles={["warden"]}>
       <Suspense fallback={<LoadingState />}>
         <Dashboard />
       </Suspense>
@@ -32,7 +32,7 @@ function Dashboard() {
   const me = useMe();
   const now = useNow();
   const { date, setDate, today, timezone } = useStaffDate();
-  const day = useQuery(api.kitchen.day, { date });
+  const day = useQuery(api.dashboard.day, { date });
   const pendingCount = useQuery(api.residents.pendingCount);
   const canApprove = me?.staffRoles.some((r) => r === "admin" || r === "warden") ?? false;
   const query = date === today ? "" : `?date=${date}`;
@@ -42,16 +42,11 @@ function Dashboard() {
       <EnsureMeals />
       <PageHeader
         title="Dashboard"
-        description={`${me?.property?.name ?? ""} · ${formatDay(date, "EEEE d MMMM yyyy")}. Updates live.`}
+        description={`Headcount for ${formatDay(date, "EEEE d MMMM yyyy")}. Updates live as residents answer.`}
         actions={
-          <>
-            <Button variant="secondary" asChild>
-              <Link href={`/staff/non-responders${query}`}>Non-responders</Link>
-            </Button>
-            <Button variant="secondary" asChild>
-              <Link href={`/staff/kitchen${query}`}>Kitchen report</Link>
-            </Button>
-          </>
+          <Button variant="secondary" asChild>
+            <Link href={`/staff/non-responders${query}`}>Non-responders</Link>
+          </Button>
         }
       />
       <DatePicker date={date} today={today} onChange={setDate} />

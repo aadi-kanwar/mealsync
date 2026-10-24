@@ -11,6 +11,14 @@
 >   organization admin screens yet.
 > - Keep Next.js, TypeScript, Tailwind, shadcn/ui, and Vercel hosting.
 >
+> - **Keep the tool simple: headcount only.** There are three kinds of users:
+>   **Admin, Warden and Resident**. There is **no Kitchen role** and no kitchen
+>   features: no cooking target, buffer, finalize/versioning, kitchen report,
+>   print view, CSV of the kitchen report, or actuals (prepared/served/waste).
+>   The staff dashboard shows, per meal, how many residents said Yes, said No
+>   and haven't answered: real counts, no formulas. Wherever the text below
+>   mentions the Kitchen role or kitchen reports, leave it out.
+>
 > Note: because login is phone number + password, the SMS/OTP requirements
 > below (SMS provider, DLT registration, OTP input, dev-only OTP sender, OTP
 > rate limits) are replaced by their password equivalents: password rules,

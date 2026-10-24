@@ -95,9 +95,9 @@ describe("development seed", () => {
     }));
     expect(state.properties).toHaveLength(1);
     expect(state.properties[0].name).toContain("TEST");
-    expect(state.profiles).toHaveLength(6);
+    expect(state.profiles).toHaveLength(5);
     expect(state.profiles.every((p) => p.displayName.startsWith("TEST"))).toBe(true);
-    expect(state.staff.map((s) => s.role).sort()).toEqual(["admin", "kitchen", "warden"]);
+    expect(state.staff.map((s) => s.role).sort()).toEqual(["admin", "warden"]);
     expect(state.residents.map((r) => r.status).sort()).toEqual(["active", "active", "pending"]);
 
     const login = await t.action(api.auth.signIn, {

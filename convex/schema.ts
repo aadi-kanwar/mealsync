@@ -3,9 +3,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   vActorRole,
-  vBufferRule,
   vCutoffRule,
-  vKitchenReportStatus,
   vLeaveStatus,
   vMealServiceStatus,
   vMealType,
@@ -185,40 +183,6 @@ export default defineSchema({
   })
     .index("by_resident", ["residentId"])
     .index("by_property_status", ["propertyId", "status"]),
-
-  // Each finalization or reopen creates a new version. Old versions stay.
-  kitchenReports: defineTable({
-    organizationId: v.id("organizations"),
-    propertyId: v.id("properties"),
-    mealServiceId: v.id("mealServices"),
-    version: v.number(),
-    confirmedCount: v.number(),
-    optedOutCount: v.number(),
-    nonResponderCount: v.number(),
-    eligibleCount: v.number(),
-    bufferApplied: v.number(),
-    bufferRule: v.optional(vBufferRule), // how bufferApplied was worked out
-    finalTarget: v.number(),
-    status: vKitchenReportStatus,
-    createdAt: v.number(),
-    createdBy: v.optional(v.id("users")),
-    finalizedBy: v.optional(v.id("users")),
-    finalizedAt: v.optional(v.number()),
-  }).index("by_service_version", ["mealServiceId", "version"]),
-
-  actualCounts: defineTable({
-    organizationId: v.id("organizations"),
-    propertyId: v.id("properties"),
-    mealServiceId: v.id("mealServices"),
-    preparedCount: v.number(),
-    servedCount: v.number(),
-    leftoverCount: v.number(),
-    discardedCount: v.number(),
-    discardedWeightGrams: v.optional(v.number()),
-    notes: v.optional(v.string()),
-    recordedBy: v.id("users"),
-    recordedAt: v.number(),
-  }).index("by_service", ["mealServiceId"]),
 
   // Replaces the master prompt's `otpRateLimits`: login is phone + password,
   // so we limit failed sign-in attempts per phone number (whether or not the

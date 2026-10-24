@@ -9,7 +9,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "MealSync", template: "%s · MealSync" },
-  description: "Tell the PG kitchen which meals you'll eat.",
+  description: "Tell the PG which meals you'll eat.",
 };
 
 export const viewport: Viewport = {

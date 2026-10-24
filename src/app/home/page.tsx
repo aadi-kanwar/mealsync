@@ -1,84 +1,81 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { Clock } from "lucide-react";
+import { AlarmClock, Clock } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
-import { isOpen, MealPlanner } from "@/components/app/meal-planner";
+import { AnswerProgress, answeredCount, DayEditor, SaveBar, useMealDrafts } from "@/components/app/meal-editor";
+import { isOpen, type MyDays } from "@/components/app/meal-shared";
 import { ResidentPage, type ResidentContext } from "@/components/app/resident-page";
-import { Banner } from "@/components/ui/banner";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { LoadingState } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/states";
 import { formatDay, formatDuration, formatWhen } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /** Resident home: choose tomorrow's meals before the cutoff. */
 export default function ResidentHome() {
   return <ResidentPage>{(ctx) => <Tomorrow {...ctx} />}</ResidentPage>;
 }
 
-function Tomorrow({ me, timezone, now, today }: ResidentContext) {
-  const tomorrow = addDays(today, 1);
+function Tomorrow(ctx: ResidentContext) {
+  const tomorrow = addDays(ctx.today, 1);
   const data = useQuery(api.meals.myDays, { startDate: tomorrow, days: 1 });
-
-  const greeting = (
-    <div className="flex flex-col gap-1">
-      <h1 className="text-xl font-semibold tracking-tight">Hello, {me.profile?.displayName}</h1>
-      <p className="text-foreground-secondary">
-        Tomorrow&apos;s meals · {formatDay(tomorrow, "EEEE d MMMM")} · Room {me.resident?.roomNumber}
-      </p>
-    </div>
+  return (
+    <>
+      <header className="flex flex-col gap-1">
+        <p className="text-sm text-foreground-secondary">
+          Hello, {ctx.me.profile?.displayName} · Room {ctx.me.resident?.roomNumber}
+        </p>
+        <h1 className="flex flex-col">
+          <span className="text-sm font-medium tracking-wide text-primary-text uppercase">Tomorrow</span>
+          <span className="text-2xl font-semibold tracking-tight">{formatDay(tomorrow, "EEEE d MMMM")}</span>
+        </h1>
+      </header>
+      {data === undefined ? <LoadingState rows={4} label="Loading tomorrow's meals" /> : <TomorrowMeals data={data} {...ctx} />}
+    </>
   );
-  if (data === undefined) {
-    return (
-      <>
-        {greeting}
-        <LoadingState rows={4} label="Loading tomorrow's meals" />
-      </>
-    );
+}
+
+function TomorrowMeals({ data, now, today, timezone }: ResidentContext & { data: MyDays }) {
+  const day = data.days[0];
+  const drafts = useMealDrafts(data.days, now);
+  if (day.meals.length === 0) {
+    return <EmptyState title="No meals are scheduled for tomorrow" description="Check This week for other days." />;
   }
 
-  const day = data.days[0];
   const open = day.meals.filter((meal) => isOpen(day, meal, now));
-  const nextCutoff = open.length > 0 ? Math.min(...open.map((meal) => meal.cutoffAt)) : null;
-  const unanswered = open.filter((meal) => meal.selection === null);
-  const cutoffNear =
-    nextCutoff !== null && nextCutoff - now <= data.property.bannerMinutesBeforeCutoff * 60_000;
+  const cutoff = open.length > 0 ? Math.min(...open.map((meal) => meal.cutoffAt)) : null;
+  const total = day.meals.filter((meal) => !meal.cancelled).length;
+  const answered = answeredCount(day, drafts);
+  const urgent =
+    cutoff !== null && answered < total && cutoff - now <= data.property.bannerMinutesBeforeCutoff * 60_000;
 
   return (
     <>
-      {greeting}
-      {day.meals.length === 0 ? (
-        <EmptyState title="No meals are scheduled for tomorrow" description="Check This week for other days." />
-      ) : (
-        <>
-          {nextCutoff !== null ? (
-            <Card>
-              <CardBody className="flex items-center gap-3">
-                <Icon icon={Clock} className="text-foreground-secondary" />
-                <div className="flex flex-col">
-                  <p className="font-medium">Choose by {formatWhen(nextCutoff, today, timezone)}</p>
-                  <p className="text-sm text-foreground-secondary tabular">
-                    {formatDuration(nextCutoff - now)} left
-                  </p>
-                </div>
-              </CardBody>
-            </Card>
-          ) : day.ineligible === null ? (
-            <Banner tone="info" title="Choices for tomorrow are closed">
-              To change a meal now, contact the Warden.
-            </Banner>
+      {cutoff !== null ? (
+        <Card
+          role={urgent ? "alert" : undefined}
+          className={cn("flex flex-col gap-3 p-4", urgent && "border-warning-border bg-warning-subtle")}
+        >
+          <div className="flex items-center gap-3">
+            <Icon icon={urgent ? AlarmClock : Clock} className={urgent ? "text-warning" : "text-foreground-secondary"} />
+            <p className="flex-1 font-medium">Choose by {formatWhen(cutoff, today, timezone)}</p>
+            <p className={cn("text-sm tabular", urgent ? "font-medium text-warning" : "text-foreground-secondary")}>
+              {formatDuration(cutoff - now)} left
+            </p>
+          </div>
+          <AnswerProgress answered={answered} total={total} />
+          {urgent ? (
+            <p className="text-sm text-warning">
+              The cutoff is close. Meals you don&apos;t answer aren&apos;t counted as No — please choose.
+            </p>
           ) : null}
-          {cutoffNear && unanswered.length > 0 ? (
-            <Banner tone="warning" title={`Only ${formatDuration(nextCutoff - now)} left`}>
-              You haven&apos;t answered {unanswered.map((meal) => meal.name).join(", ")} yet. Unanswered meals
-              aren&apos;t counted as No — please choose.
-            </Banner>
-          ) : null}
-          <MealPlanner days={data.days} timezone={timezone} today={today} now={now} />
-        </>
-      )}
+        </Card>
+      ) : null}
+      <DayEditor day={day} drafts={drafts} now={now} today={today} timezone={timezone} />
+      <SaveBar drafts={drafts} today={today} timezone={timezone} />
     </>
   );
 }
