@@ -113,10 +113,11 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await expect(lunchCounts.getByText(/residents? counted for this meal/)).toBeVisible();
   await expect(warden.getByText("These numbers don't add up")).toHaveCount(0);
   await warden.goto(`/staff/non-responders?date=${isoIn(2)}`);
-  await expect(warden.getByRole("list", { name: "Lunch: not answered" })).toBeVisible();
+  await expect(warden.getByRole("heading", { name: "Non-responders" })).toBeVisible();
   await expect(warden.getByText(name, { exact: true })).toHaveCount(0);
   await warden.goto(`/staff/non-responders?date=${isoIn(3)}`);
-  await expect(warden.getByRole("list", { name: "Lunch: not answered" }).getByText(name, { exact: true })).toBeVisible();
+  const nrRow = warden.getByRole("list", { name: "Not answered" }).getByRole("listitem").filter({ hasText: name });
+  await expect(nrRow.getByRole("img", { name: "Lunch: not answered" })).toBeVisible();
 
   // E2E 4: today's meals have passed their cutoff, so today isn't offered
   // for changes. (The server's own refusal is covered by the backend tests.)
