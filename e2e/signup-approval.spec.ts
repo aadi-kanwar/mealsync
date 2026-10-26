@@ -69,7 +69,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
 
   // The resident's open "waiting" screen moves on by itself.
   await expect(resident.getByText(`Hello, ${name} · Room E2E-2`)).toBeVisible({ timeout: 15_000 });
-  await expect(resident.getByRole("heading", { name: /^Tomorrow/ })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: /^(Today|Tomorrow)/ })).toBeVisible();
 
   // The day after tomorrow is always open (its cutoff is tomorrow evening),
   // whatever time of day the test runs.
@@ -125,9 +125,11 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await expect(responseRow().getByRole("img", { name: "Lunch: not answered" })).toBeVisible();
   await expect(responseRow().getByText("Nothing saved")).toBeVisible();
 
-  // E2E 4: today's meals have passed their cutoff, so today isn't offered
-  // for changes. (The server's own refusal is covered by the backend tests.)
-  await expect(resident.getByRole("tab", { name: /^Today/ })).toHaveCount(0);
+  // E2E 4: after 6 AM (India time) today's meals have closed, so today isn't
+  // offered for changes. (The server's own refusal is covered by the backend tests.)
+  if (Number(formatInTimeZone(new Date(), "Asia/Kolkata", "H")) >= 6) {
+    await expect(resident.getByRole("tab", { name: /^Today/ })).toHaveCount(0);
+  }
   await expect(resident.getByRole("tab")).toHaveCount(7);
 
   // Profile shows the details given once at sign-up, a short history and log out.
@@ -165,7 +167,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await resident.getByLabel("New password", { exact: true }).fill("e2e-new-pass");
   await resident.getByLabel("Type the new password again").fill("e2e-new-pass");
   await resident.getByRole("button", { name: "Save new password" }).click();
-  await expect(resident.getByRole("heading", { name: /^Tomorrow/ })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: /^(Today|Tomorrow)/ })).toBeVisible();
   await expect(person.getByText("Temporary password")).toHaveCount(0);
 
   await residentContext.close();

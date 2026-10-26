@@ -21,8 +21,8 @@ cooking targets, buffers, actuals or kitchen reports.
   "Waiting for approval". They can't choose meals and aren't counted until a
   Warden or Admin approves them.
 - **Choosing meals** (approved residents):
-  - *Tomorrow* (the home screen): tomorrow's date, "Choose by 9:00 PM today"
-    with the time left, and an "x of 4 answered" bar. Each meal is one row
+  - *Home*: the next day that can still be chosen: **Today** before 6 AM,
+    **Tomorrow** after. It shows "Choose by 6:00 AM" with the time left, and an "x of 4 answered" bar. Each meal is one row
     with Yes / No buttons; **Yes to all** / **No to all** do the whole day in
     one tap. Then **Save** ("Saved at 8:14 PM"). Close to the cutoff the box
     turns amber if something is still unanswered.
@@ -42,8 +42,8 @@ cooking targets, buffers, actuals or kitchen reports.
   - Meals are prepared for the coming week automatically every night (and on
     demand if someone opens the app first).
   - Meal timings: Breakfast 7:30–9:30 AM, Lunch 12:00–2:00 PM, Snacks
-    5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by 9:00 PM the
-    evening before.
+    5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by **6:00 AM on
+    the same day**.
 - **Staff screens** (`/staff`, Admin and Warden):
   - *Dashboard* (the headcount): pick a day (Yesterday / Today / Tomorrow or
     any date). For each meal it shows how many residents said **Yes**, said

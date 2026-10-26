@@ -7,6 +7,7 @@ import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
 import { formatPhoneForDisplay } from "@convex/lib/inputRules";
+import { matchesSearch, sortPeople, SortSelect, type SortKey } from "@/components/app/resident-sort";
 import { useMe } from "@/components/app/session";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { Banner } from "@/components/ui/banner";
@@ -42,10 +43,11 @@ function Residents() {
   const rows = useQuery(api.residents.list);
   const [tab, setTab] = useState<"active" | "inactive">("active");
   const [search, setSearch] = useState("");
-  const term = search.trim().toLowerCase();
-  const inTab = rows?.filter((r) => r.status === tab) ?? [];
-  const shown = inTab.filter(
-    (r) => term === "" || r.displayName.toLowerCase().includes(term) || r.roomNumber.toLowerCase().includes(term),
+  const [sort, setSort] = useState<SortKey>("room-asc");
+  const term = search.trim();
+  const shown = sortPeople(
+    (rows ?? []).filter((r) => r.status === tab && matchesSearch(r, term)),
+    sort,
   );
   const count = (status: Row["status"]) => rows?.filter((r) => r.status === status).length ?? 0;
 
@@ -78,7 +80,10 @@ function Residents() {
             </button>
           ))}
         </div>
-        <SearchInput label="Search by name or room" placeholder="Name or room" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <SearchInput label="Search by name or room" placeholder="Name or room" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <SortSelect value={sort} onChange={setSort} />
+        </div>
       </div>
       {rows === undefined ? (
         <LoadingState />

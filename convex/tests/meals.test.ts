@@ -94,15 +94,27 @@ describe("meal service generation", () => {
       serviceTime: "07:30",
       endTime: "09:30",
       status: "scheduled",
-      cutoffAt: Date.UTC(2026, 9, 24, 15, 30), // 24 Oct 21:00 IST
+      cutoffAt: Date.UTC(2026, 9, 25, 0, 30), // 25 Oct 06:00 IST, the same morning
       policySnapshot: {
         displayName: "Breakfast",
         serviceTime: "07:30",
         endTime: "09:30",
-        cutoffRule: { daysBefore: 1, time: "21:00" },
+        cutoffRule: { daysBefore: 0, time: "06:00" },
         timezone: "Asia/Kolkata",
       },
     });
+  });
+
+  test("a day's meals can be chosen until 6 AM that morning, and not after", async () => {
+    const { t } = await setup();
+    const resident = await createActiveResident(t);
+    const dinner = await service(t, TOMORROW, "dinner");
+    const choose = () =>
+      resident.as.mutation(api.meals.saveChoices, { choices: [{ mealServiceId: dinner._id, selection: "yes" }] });
+    vi.setSystemTime(Date.UTC(2026, 9, 25, 0, 29)); // 25 Oct 05:59 IST
+    await choose();
+    vi.setSystemTime(Date.UTC(2026, 9, 25, 0, 30)); // 06:00 IST
+    expect(await errorCode(choose())).toBe("CUTOFF_PASSED");
   });
 
   test("is safe to rerun: no duplicates", async () => {
