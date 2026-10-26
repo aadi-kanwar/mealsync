@@ -105,6 +105,31 @@ You do the clicks; Claude does the technical parts.
    This step only works once. After that, Admins add other staff from the
    **Staff** screen. (Each person must create their own account first.)
 
+### Going live (production)
+
+The live app uses its own **production** database, separate from the test
+one. Vercel hosts the website and, on every deploy, `scripts/vercel-build.mjs`
+prepares the production database automatically (login keys, latest backend
+code, the PG record). Steps (one time):
+
+1. **Convex:** <https://dashboard.convex.dev> → project **mealsync** → switch
+   to **Production** (top of the page) → **Settings** → **URL & Deploy Key**
+   → **Generate Production Deploy Key** → copy it.
+2. **Vercel:** <https://vercel.com> → sign up with GitHub → **Add New… →
+   Project** → import **mealsync** → open **Environment Variables** and add
+   `CONVEX_DEPLOY_KEY` = the key from step 1 (Production only). Optionally
+   add `MEALSYNC_PG_NAME` and `MEALSYNC_ORGANIZATION_NAME` (they can also be
+   changed later in Settings). Click **Deploy**.
+3. **First Admin:** open the live address, **Residents and wardens → Create
+   account** with your own number (room `OFFICE`). Then in the Convex
+   dashboard (still on **Production**): **Functions → setup →
+   makeFirstAdmin** → `{"phone": "+91XXXXXXXXXX"}` → **Run**. Refresh the
+   app: you're the Admin. Fill in **Menu** and **Settings**.
+
+Never set `MEALSYNC_ALLOW_DEV_SEED` on production (the build refuses to run
+if it is). A custom domain is added later in Vercel → Settings → Domains;
+the next deploy updates the login settings to match.
+
 ### Forgotten passwords
 
 There's no SMS, so residents can't reset their own password. A Warden or Admin
