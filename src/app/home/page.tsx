@@ -14,14 +14,18 @@ import { EmptyState } from "@/components/ui/states";
 import { formatDay, formatDuration, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** Resident home: choose tomorrow's meals before the cutoff. */
+/**
+ * Resident home: the next day whose meals can still be chosen. Meals close
+ * at 6 AM on the day, so before 6 AM that's today; after it, tomorrow.
+ */
 export default function ResidentHome() {
   return <ResidentPage>{(ctx) => <Tomorrow {...ctx} />}</ResidentPage>;
 }
 
 function Tomorrow(ctx: ResidentContext) {
-  const tomorrow = addDays(ctx.today, 1);
-  const data = useQuery(api.meals.myDays, { startDate: tomorrow, days: 1 });
+  const data = useQuery(api.meals.myDays, { startDate: ctx.today, days: 2 });
+  const todayOpen = data?.days[0].meals.some((meal) => isOpen(data.days[0], meal, ctx.now)) ?? false;
+  const shown = todayOpen ? ctx.today : addDays(ctx.today, 1);
   return (
     <>
       <header className="flex flex-col gap-1">
@@ -29,20 +33,26 @@ function Tomorrow(ctx: ResidentContext) {
           Hello, {ctx.me.profile?.displayName} · Room {ctx.me.resident?.roomNumber}
         </p>
         <h1 className="flex flex-col">
-          <span className="text-sm font-medium tracking-wide text-primary-text uppercase">Tomorrow</span>
-          <span className="text-2xl font-semibold tracking-tight">{formatDay(tomorrow, "EEEE d MMMM")}</span>
+          <span className="text-sm font-medium tracking-wide text-primary-text uppercase">
+            {todayOpen ? "Today" : "Tomorrow"}
+          </span>
+          <span className="text-2xl font-semibold tracking-tight">{formatDay(shown, "EEEE d MMMM")}</span>
         </h1>
       </header>
-      {data === undefined ? <LoadingState rows={4} label="Loading tomorrow's meals" /> : <TomorrowMeals data={data} {...ctx} />}
+      {data === undefined ? (
+        <LoadingState rows={4} label="Loading meals" />
+      ) : (
+        <DayMeals key={shown} data={{ ...data, days: data.days.filter((d) => d.date === shown) }} {...ctx} />
+      )}
     </>
   );
 }
 
-function TomorrowMeals({ data, now, today, timezone }: ResidentContext & { data: MyDays }) {
+function DayMeals({ data, now, today, timezone }: ResidentContext & { data: MyDays }) {
   const day = data.days[0];
   const drafts = useMealDrafts(data.days, now);
   if (day.meals.length === 0) {
-    return <EmptyState title="No meals are scheduled for tomorrow" description="Check This week for other days." />;
+    return <EmptyState title="No meals are scheduled for this day" description="Check This week for other days." />;
   }
 
   const open = day.meals.filter((meal) => isOpen(day, meal, now));

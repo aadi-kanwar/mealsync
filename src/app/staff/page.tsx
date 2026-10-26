@@ -47,7 +47,7 @@ function Dashboard() {
         actions={
           <>
             <Button variant="secondary" asChild>
-              <Link href={`/staff/non-responders${query}`}>Non-responders</Link>
+              <Link href={`/staff/responses${query}`}>Responses</Link>
             </Button>
             {isAdmin ? (
               <>

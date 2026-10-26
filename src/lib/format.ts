@@ -28,7 +28,7 @@ export function formatClock(time: string): string {
   return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
-/** "9:00 PM today", "9:00 PM tomorrow" or "9:00 PM, Sat 24 Oct", relative to `today`. */
+/** "6:00 AM today", "6:00 AM tomorrow" or "6:00 AM, Sat 24 Oct", relative to `today`. */
 export function formatWhen(ms: number, today: string, timezone = DEFAULT_TIMEZONE): string {
   const date = formatInTimeZone(new Date(ms), timezone, "yyyy-MM-dd");
   const time = formatTime(ms, timezone);

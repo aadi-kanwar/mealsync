@@ -6,7 +6,7 @@ import { formatInTimeZone } from "date-fns-tz";
  * profile, sees "waiting for approval"; the Warden approves them; they then
  * see they're approved and can choose meals. Also covers E2E 2-4: submit all
  * four meals, change one before the cutoff, closed meals can't be changed,
- * and E2E 5: the Warden sees counts and non-responders. Needs a seeded
+ * and E2E 5: the Warden sees counts and each resident's responses. Needs a seeded
  * development Convex deployment.
  */
 const seedPassword = process.env.E2E_SEED_PASSWORD;
@@ -69,7 +69,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
 
   // The resident's open "waiting" screen moves on by itself.
   await expect(resident.getByText(`Hello, ${name} · Room E2E-2`)).toBeVisible({ timeout: 15_000 });
-  await expect(resident.getByRole("heading", { name: /^Tomorrow/ })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: /^(Today|Tomorrow)/ })).toBeVisible();
 
   // The day after tomorrow is always open (its cutoff is tomorrow evening),
   // whatever time of day the test runs.
@@ -112,15 +112,24 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   }
   await expect(lunchCounts.getByText(/residents? counted for this meal/)).toBeVisible();
   await expect(warden.getByText("These numbers don't add up")).toHaveCount(0);
-  await warden.goto(`/staff/non-responders?date=${isoIn(2)}`);
-  await expect(warden.getByRole("list", { name: "Lunch: not answered" })).toBeVisible();
-  await expect(warden.getByText(name, { exact: true })).toHaveCount(0);
-  await warden.goto(`/staff/non-responders?date=${isoIn(3)}`);
-  await expect(warden.getByRole("list", { name: "Lunch: not answered" }).getByText(name, { exact: true })).toBeVisible();
+  // Responses: every resident's choices and when they last saved.
+  const responseRow = () =>
+    warden.getByRole("list", { name: "Residents' responses" }).getByRole("listitem").filter({ hasText: name });
+  await warden.goto(`/staff/responses?date=${isoIn(2)}`);
+  await expect(warden.getByRole("heading", { name: "Responses" })).toBeVisible();
+  for (const [meal, choice] of [["Breakfast", "Yes"], ["Lunch", "No"], ["Snacks", "No"], ["Dinner", "Yes"]]) {
+    await expect(responseRow().getByRole("img", { name: `${meal}: ${choice}` })).toBeVisible();
+  }
+  await expect(responseRow().getByText(/^Saved \d/)).toBeVisible();
+  await warden.goto(`/staff/responses?date=${isoIn(3)}`);
+  await expect(responseRow().getByRole("img", { name: "Lunch: not answered" })).toBeVisible();
+  await expect(responseRow().getByText("Nothing saved")).toBeVisible();
 
-  // E2E 4: today's meals have passed their cutoff, so today isn't offered
-  // for changes. (The server's own refusal is covered by the backend tests.)
-  await expect(resident.getByRole("tab", { name: /^Today/ })).toHaveCount(0);
+  // E2E 4: after 6 AM (India time) today's meals have closed, so today isn't
+  // offered for changes. (The server's own refusal is covered by the backend tests.)
+  if (Number(formatInTimeZone(new Date(), "Asia/Kolkata", "H")) >= 6) {
+    await expect(resident.getByRole("tab", { name: /^Today/ })).toHaveCount(0);
+  }
   await expect(resident.getByRole("tab")).toHaveCount(7);
 
   // Profile shows the details given once at sign-up, a short history and log out.
@@ -158,7 +167,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await resident.getByLabel("New password", { exact: true }).fill("e2e-new-pass");
   await resident.getByLabel("Type the new password again").fill("e2e-new-pass");
   await resident.getByRole("button", { name: "Save new password" }).click();
-  await expect(resident.getByRole("heading", { name: /^Tomorrow/ })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: /^(Today|Tomorrow)/ })).toBeVisible();
   await expect(person.getByText("Temporary password")).toHaveCount(0);
 
   await residentContext.close();

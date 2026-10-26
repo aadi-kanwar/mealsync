@@ -21,8 +21,8 @@ cooking targets, buffers, actuals or kitchen reports.
   "Waiting for approval". They can't choose meals and aren't counted until a
   Warden or Admin approves them.
 - **Choosing meals** (approved residents):
-  - *Tomorrow* (the home screen): tomorrow's date, "Choose by 9:00 PM today"
-    with the time left, and an "x of 4 answered" bar. Each meal is one row
+  - *Home*: the next day that can still be chosen: **Today** before 6 AM,
+    **Tomorrow** after. It shows "Choose by 6:00 AM" with the time left, and an "x of 4 answered" bar. Each meal is one row
     with Yes / No buttons; **Yes to all** / **No to all** do the whole day in
     one tap. Then **Save** ("Saved at 8:14 PM"). Close to the cutoff the box
     turns amber if something is still unanswered.
@@ -42,15 +42,16 @@ cooking targets, buffers, actuals or kitchen reports.
   - Meals are prepared for the coming week automatically every night (and on
     demand if someone opens the app first).
   - Meal timings: Breakfast 7:30–9:30 AM, Lunch 12:00–2:00 PM, Snacks
-    5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by 9:00 PM the
-    evening before.
+    5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by **6:00 AM on
+    the same day**.
 - **Staff screens** (`/staff`, Admin and Warden):
   - *Dashboard* (the headcount): pick a day (Yesterday / Today / Tomorrow or
     any date). For each meal it shows how many residents said **Yes**, said
     **No**, and have **Not answered**, plus whether choices are still open.
     Numbers update live. Also shows sign-ups waiting.
-  - *Non-responders*: names and rooms of who hasn't answered each meal, so
-    the Warden can remind them. Phone numbers are never shown here.
+  - *Responses*: every resident counted that day, one line each: name, room,
+    when they last saved, and B L S D boxes (✓ Yes, ✕ No, – not answered),
+    so the Warden can see who to remind. Phone numbers are never shown here.
   - *Residents*: everyone approved, with search and "Current" / "Moved out"
     tabs.
     - **Moved out**: enter their last day. They're counted up to and
@@ -80,7 +81,7 @@ cooking targets, buffers, actuals or kitchen reports.
 | Role | Can do |
 |---|---|
 | Admin | Everything the Warden can, plus managing staff and the menus. |
-| Warden | Approve or reject new sign-ups; see the headcount and non-responders; mark residents as moved out; reset a resident's forgotten password. |
+| Warden | Approve or reject new sign-ups; see the headcount and every resident's responses; mark residents as moved out; reset a resident's forgotten password. |
 | Resident | Sign up (name and room once), sign in, see their approval status; once approved, choose meals before the cutoff, see their own history, change their password. |
 
 ### First-time setup (one time only)
@@ -103,6 +104,31 @@ You do the clicks; Claude does the technical parts.
 
    This step only works once. After that, Admins add other staff from the
    **Staff** screen. (Each person must create their own account first.)
+
+### Going live (production)
+
+The live app uses its own **production** database, separate from the test
+one. Vercel hosts the website and, on every deploy, `scripts/vercel-build.mjs`
+prepares the production database automatically (login keys, latest backend
+code, the PG record). Steps (one time):
+
+1. **Convex:** <https://dashboard.convex.dev> → project **mealsync** → switch
+   to **Production** (top of the page) → **Settings** → **URL & Deploy Key**
+   → **Generate Production Deploy Key** → copy it.
+2. **Vercel:** <https://vercel.com> → sign up with GitHub → **Add New… →
+   Project** → import **mealsync** → open **Environment Variables** and add
+   `CONVEX_DEPLOY_KEY` = the key from step 1 (Production only). Optionally
+   add `MEALSYNC_PG_NAME` and `MEALSYNC_ORGANIZATION_NAME` (they can also be
+   changed later in Settings). Click **Deploy**.
+3. **First Admin:** open the live address, **Residents and wardens → Create
+   account** with your own number (room `OFFICE`). Then in the Convex
+   dashboard (still on **Production**): **Functions → setup →
+   makeFirstAdmin** → `{"phone": "+91XXXXXXXXXX"}` → **Run**. Refresh the
+   app: you're the Admin. Fill in **Menu** and **Settings**.
+
+Never set `MEALSYNC_ALLOW_DEV_SEED` on production (the build refuses to run
+if it is). A custom domain is added later in Vercel → Settings → Domains;
+the next deploy updates the login settings to match.
 
 ### Forgotten passwords
 
@@ -160,7 +186,7 @@ convex/
   access.ts            permission checks used by actions (internal)
   meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
   crons.ts             daily job creating the next 7 days of meal services
-  dashboard.ts         day (headcount per meal), nonResponders
+  dashboard.ts         day (headcount per meal), responses (each resident's choices)
   menus.ts             get, save, setThisWeek (Admin)
   residents.ts         listPending, pendingCount, approve, reject, list,
                        moveOut, cancelMoveOut, resetPassword, endStays (daily)
@@ -175,7 +201,7 @@ convex/
 src/
   app/                 pages: /signin /onboarding (fallback) /pending /home /upcoming
                        /profile /change-password /design
-                       /staff (dashboard) /staff/non-responders /staff/residents
+                       /staff (dashboard) /staff/responses /staff/residents
                        /staff/signups /staff/team /staff/menu
   components/ui/       design-system components
   proxy.ts             redirects signed-out visitors to /signin

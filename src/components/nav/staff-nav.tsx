@@ -27,7 +27,7 @@ export function StaffSidebar({
       aria-label={preview ? "Staff (preview)" : "Staff"}
       className={cn(
         "w-60 shrink-0 flex-col justify-between border-r border-border bg-surface p-3 print:hidden",
-        preview ? "flex" : "hidden md:flex",
+        preview ? "flex" : "sticky top-14 hidden h-[calc(100dvh-3.5rem)] self-start overflow-y-auto md:flex",
       )}
     >
       <ul className="flex flex-col gap-1">

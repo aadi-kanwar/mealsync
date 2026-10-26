@@ -2,12 +2,12 @@ import {
   CalendarDays,
   ClipboardCheck,
   LayoutDashboard,
+  ListChecks,
   Palette,
   Settings,
   ShieldCheck,
   Sun,
   UserRound,
-  UserRoundX,
   Users,
   UtensilsCrossed,
   type LucideIcon,
@@ -26,7 +26,7 @@ export type NavItem = {
 
 export const STAFF_NAV: NavItem[] = [
   { href: "/staff", label: "Dashboard", icon: LayoutDashboard, roles: ["warden"] },
-  { href: "/staff/non-responders", label: "Non-responders", icon: UserRoundX, roles: ["warden"] },
+  { href: "/staff/responses", label: "Responses", icon: ListChecks, roles: ["warden"] },
   { href: "/staff/residents", label: "Residents", icon: Users, roles: ["warden"] },
   { href: "/staff/signups", label: "New sign-ups", icon: ClipboardCheck, roles: ["warden"] },
   { href: "/staff/team", label: "Staff", icon: ShieldCheck, roles: ["admin"], mobile: false },

@@ -18,8 +18,8 @@ export const DEFAULT_MEAL_SLOTS: ReadonlyArray<{
   { mealType: "dinner", displayName: "Dinner", serviceTime: "20:00", endTime: "21:30" },
 ];
 
-/** Every meal is decided by 9 PM the evening before. */
-export const DEFAULT_CUTOFF_RULE = { daysBefore: 1, time: "21:00" };
+/** Every day's meals are decided by 6 AM that same day. */
+export const DEFAULT_CUTOFF_RULE = { daysBefore: 0, time: "06:00" };
 
 function slugify(name: string): string {
   const slug = name

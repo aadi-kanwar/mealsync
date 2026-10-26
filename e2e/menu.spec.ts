@@ -19,8 +19,9 @@ async function signIn(page: Page, phone: string) {
 }
 
 test("admin's menu shows up on residents' meals", async ({ browser }) => {
-  // Tomorrow's weekday, filled the same in both menus so the rotation doesn't matter.
-  const weekday = formatInTimeZone(new Date(Date.now() + 86_400_000), "Asia/Kolkata", "EEEE");
+  // Today's and tomorrow's weekdays (the home screen shows today before 6 AM),
+  // filled the same in both menus so the rotation doesn't matter.
+  const weekdays = [0, 1].map((d) => formatInTimeZone(new Date(Date.now() + d * 86_400_000), "Asia/Kolkata", "EEEE"));
   const dish = `Test thali ${Date.now() % 100000}`;
 
   const adminContext = await browser.newContext();
@@ -30,7 +31,7 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   await admin.goto("/staff/menu");
   for (const label of ["A", "B"]) {
     await admin.getByRole("tab", { name: new RegExp(`^Menu ${label}`) }).click();
-    await admin.getByLabel(`Menu ${label}, ${weekday}, Lunch`).fill(dish);
+    for (const weekday of weekdays) await admin.getByLabel(`Menu ${label}, ${weekday}, Lunch`).fill(dish);
   }
   await expect(admin.getByText("Unsaved changes in Menu A and Menu B")).toBeVisible();
   await admin.getByRole("button", { name: "Save" }).click();
@@ -44,7 +45,7 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   const context = await browser.newContext();
   const resident = await context.newPage();
   await signIn(resident, RESIDENT_PHONE);
-  await expect(resident.getByRole("heading", { name: /^Tomorrow/ })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: /^(Today|Tomorrow)/ })).toBeVisible();
   await expect(resident.getByText(dish)).toBeVisible();
   await expect(resident.getByText("12:00 – 2:00 PM")).toBeVisible();
   await context.close();

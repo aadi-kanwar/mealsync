@@ -159,7 +159,7 @@ describe("who can see what", () => {
     const resident = await createActiveResident(t);
     for (const call of [
       resident.as.query(api.dashboard.day, { date: TODAY }),
-      resident.as.query(api.dashboard.nonResponders, { date: TODAY }),
+      resident.as.query(api.dashboard.responses, { date: TODAY }),
       resident.as.mutation(api.meals.ensureUpcomingForStaff, {}),
     ]) {
       expect(await errorCode(call)).toBe("FORBIDDEN");
@@ -167,15 +167,30 @@ describe("who can see what", () => {
     expect(await errorCode(t.query(api.dashboard.day, { date: TODAY }))).toBe("NOT_SIGNED_IN");
   });
 
-  test("Warden and Admin see names and rooms of non-responders, never phone numbers", async () => {
-    const { t, warden, admin } = await setup();
-    await typicalDay(t);
+  test("Warden and Admin see every counted resident's choices and last save, never phone numbers", async () => {
+    const { t, property, warden, admin } = await setup();
+    const { people } = await typicalDay(t);
+    // Resident 105 is on leave today, so isn't listed.
+    await t.run(async (ctx) => {
+      await ctx.db.insert("leaves", {
+        organizationId: property.organizationId,
+        propertyId: property._id,
+        residentId: people[4].residentId,
+        startDate: TODAY,
+        endDate: TODAY,
+        status: "approved",
+        requestedBy: people[4].userId,
+        createdAt: NOW,
+      });
+    });
     for (const staff of [warden, admin]) {
-      const data = await staff.as.query(api.dashboard.nonResponders, { date: TODAY });
-      const lunch = data.meals.find((m) => m.name === "Lunch")!;
-      expect(lunch.people.map((p) => [p.roomNumber, p.displayName])).toEqual([
-        ["104", "Resident 104"],
-        ["105", "Resident 105"],
+      const data = await staff.as.query(api.dashboard.responses, { date: TODAY });
+      expect(data.meals.map((m) => m.name)).toEqual(["Breakfast", "Lunch", "Snacks", "Dinner"]);
+      expect(data.residents.map((r) => [r.roomNumber, r.displayName, r.selections, r.lastSavedAt])).toEqual([
+        ["101", "Resident 101", [null, "yes", null, null], NOW],
+        ["102", "Resident 102", [null, "yes", null, null], NOW],
+        ["103", "Resident 103", [null, "no", null, null], NOW],
+        ["104", "Resident 104", [null, null, null, null], null],
       ]);
       expect(JSON.stringify(data)).not.toMatch(/\+91/);
     }
