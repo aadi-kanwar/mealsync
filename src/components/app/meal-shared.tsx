@@ -5,7 +5,7 @@ import { addDays } from "@convex/lib/time";
 import type { MealType } from "@convex/lib/validators";
 import { Card } from "@/components/ui/card";
 import { MealRow } from "@/components/ui/meal-row";
-import { formatClock, formatDay, formatWhen } from "@/lib/format";
+import { formatDay, formatWhen, formatWindow } from "@/lib/format";
 
 export type MyDays = FunctionReturnType<typeof api.meals.myDays>;
 export type Day = MyDays["days"][number];
@@ -81,7 +81,8 @@ export function DaySummary({ day, timezone, today, note }: { day: Day; timezone:
               key={meal.serviceId}
               icon={MEAL_ICONS[meal.mealType]}
               name={meal.name}
-              time={formatClock(meal.serviceTime)}
+              time={formatWindow(meal.serviceTime, meal.endTime)}
+              menu={meal.menu}
               value={meal.selection}
               locked
             >

@@ -29,9 +29,11 @@ cooking targets, buffers, actuals or kitchen reports.
   - *This week*: a row of day tabs for the next 7 days. Each tab shows how
     many meals are still unanswered (or a ✓ when done, a lock when closed).
     Tap a day, choose, and one **Save** saves every day you changed.
-  - *History*: past days, what was chosen and when, and whether a staff
-    member changed it.
-  - *Profile*: their name, room and number, and **Change password**.
+  - *Profile*: their name, room and number, **Change password**, a short
+    **History** (one line per past day: B L S D with ✓ Yes, ✕ No or – not
+    answered), and **Log out**.
+  - Each meal shows its time window and, once the Admin has filled in the
+    menu, what's being served.
   - A meal nobody answered stays **Not answered**; it is never treated as No.
   - After the cutoff a meal is locked. The server checks the time with its
     own clock, so changing the phone's clock doesn't help.
@@ -39,8 +41,9 @@ cooking targets, buffers, actuals or kitchen reports.
     before → after, when). Pressing Save without changing anything adds nothing.
   - Meals are prepared for the coming week automatically every night (and on
     demand if someone opens the app first).
-  - Default timings: Breakfast 8:00 AM, Lunch 1:00 PM, Snacks 5:00 PM,
-    Dinner 8:30 PM, each to be chosen by 9:00 PM the evening before.
+  - Meal timings: Breakfast 7:30–9:30 AM, Lunch 12:00–2:00 PM, Snacks
+    5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by 9:00 PM the
+    evening before.
 - **Staff screens** (`/staff`, Admin and Warden):
   - *Dashboard* (the headcount): pick a day (Yesterday / Today / Tomorrow or
     any date). For each meal it shows how many residents said **Yes**, said
@@ -62,6 +65,11 @@ cooking targets, buffers, actuals or kitchen reports.
   - *New sign-ups*: approve (confirm room and start date) or reject.
   - *Staff* (Admin only): make someone an Admin or Warden, or take it away.
     There must always be at least one Admin.
+  - *Menu* (Admin only): fill in the two weekly menus (Menu A and Menu B:
+    Monday–Sunday, four meals a day) and choose which one runs **this
+    week**. After that they alternate by themselves every Monday, and
+    residents see each meal's dishes. On a phone, Menu and Staff are linked
+    from the top of the Dashboard.
 - **Design system** (`/design`): a reference page of every colour, text size
   and building block the app uses.
 - Every approval, rejection and role change is written to a permanent
@@ -71,7 +79,7 @@ cooking targets, buffers, actuals or kitchen reports.
 
 | Role | Can do |
 |---|---|
-| Admin | Everything the Warden can, plus managing staff. |
+| Admin | Everything the Warden can, plus managing staff and the menus. |
 | Warden | Approve or reject new sign-ups; see the headcount and non-responders; mark residents as moved out; reset a resident's forgotten password. |
 | Resident | Sign up (name and room once), sign in, see their approval status; once approved, choose meals before the cutoff, see their own history, change their password. |
 
@@ -153,6 +161,7 @@ convex/
   meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
   crons.ts             daily job creating the next 7 days of meal services
   dashboard.ts         day (headcount per meal), nonResponders
+  menus.ts             get, save, setThisWeek (Admin)
   residents.ts         listPending, pendingCount, approve, reject, list,
                        moveOut, cancelMoveOut, resetPassword, endStays (daily)
   staff.ts             list, grantRole, revokeRole (Admin)
@@ -160,13 +169,14 @@ convex/
   seed.ts              development-only test data (internal, env-guarded)
   lib/                 permission wrappers, validators, input rules, audit,
                        meals.ts (service generation, eligibility), time.ts (cutoffs),
-                       headcount.ts (who is counted; Yes / No / Not answered)
+                       headcount.ts (who is counted; Yes / No / Not answered),
+                       menus.ts (which menu runs which week)
   tests/               backend tests (*.test.ts)
 src/
   app/                 pages: /signin /onboarding (fallback) /pending /home /upcoming
-                       /history /profile /change-password /design
+                       /profile /change-password /design
                        /staff (dashboard) /staff/non-responders /staff/residents
-                       /staff/signups /staff/team
+                       /staff/signups /staff/team /staff/menu
   components/ui/       design-system components
   proxy.ts             redirects signed-out visitors to /signin
 e2e/                   Playwright tests

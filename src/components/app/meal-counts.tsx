@@ -5,7 +5,7 @@ import { Banner } from "@/components/ui/banner";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatClock, formatWhen } from "@/lib/format";
+import { formatWhen, formatWindow } from "@/lib/format";
 
 export type StaffDay = FunctionReturnType<typeof api.dashboard.day>;
 export type StaffMeal = StaffDay["meals"][number];
@@ -38,10 +38,16 @@ export function MealCounts({
   return (
     <Card role="region" aria-labelledby={`meal-${meal.serviceId}`} className="flex flex-col gap-4 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 id={`meal-${meal.serviceId}`} className="text-lg font-semibold tracking-tight">
-          {meal.name}
-          <span className="font-normal text-foreground-secondary"> · {formatClock(meal.serviceTime)}</span>
-        </h2>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h2 id={`meal-${meal.serviceId}`} className="text-lg font-semibold tracking-tight">
+            {meal.name}
+            <span className="font-normal text-foreground-secondary">
+              {" "}
+              · {formatWindow(meal.serviceTime, meal.endTime)}
+            </span>
+          </h2>
+          {meal.menu ? <p className="text-sm text-foreground-secondary">{meal.menu}</p> : null}
+        </div>
         <CutoffBadge meal={meal} now={now} today={today} timezone={timezone} />
       </div>
       <div className="grid grid-cols-3 gap-2 sm:gap-3">

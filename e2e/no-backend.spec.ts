@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 // sign-in form's own validation.
 
 test("signed-out visitors are sent to the sign-in page", async ({ page }) => {
-  for (const path of ["/", "/staff", "/staff/signups", "/staff/team", "/home", "/upcoming", "/history", "/profile", "/change-password", "/staff/residents", "/pending", "/onboarding"]) {
+  for (const path of ["/", "/staff", "/staff/signups", "/staff/team", "/home", "/upcoming", "/profile", "/staff/menu", "/change-password", "/staff/residents", "/pending", "/onboarding"]) {
     await page.goto(path);
     await expect(page, path).toHaveURL(/\/signin$/);
   }

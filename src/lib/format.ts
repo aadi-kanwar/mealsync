@@ -52,3 +52,12 @@ export function formatDuration(ms: number): string {
   if (hours >= 48) return `${Math.floor(hours / 24)} days`;
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }
+
+/** A meal's time window: "7:30 – 9:30 AM", "11:30 AM – 1:00 PM", or just the start. */
+export function formatWindow(start: string, end: string | null): string {
+  if (end === null) return formatClock(start);
+  const [from, to] = [formatClock(start), formatClock(end)];
+  const [fromTime, fromSuffix] = from.split(" ");
+  const toSuffix = to.split(" ")[1];
+  return fromSuffix === toSuffix ? `${fromTime} – ${to}` : `${from} – ${to}`;
+}

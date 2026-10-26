@@ -5,16 +5,17 @@ import { appError } from "./errors";
 import { DEFAULT_TIMEZONE, isValidTimezone, localDateString } from "./time";
 import type { MealType } from "./validators";
 
-/** Starting meal timings. The Admin can change all of these later in Settings. */
+/** The PG's meal timings (start and end), used when the property is set up. */
 export const DEFAULT_MEAL_SLOTS: ReadonlyArray<{
   mealType: MealType;
   displayName: string;
   serviceTime: string;
+  endTime: string;
 }> = [
-  { mealType: "breakfast", displayName: "Breakfast", serviceTime: "08:00" },
-  { mealType: "lunch", displayName: "Lunch", serviceTime: "13:00" },
-  { mealType: "snacks", displayName: "Snacks", serviceTime: "17:00" },
-  { mealType: "dinner", displayName: "Dinner", serviceTime: "20:30" },
+  { mealType: "breakfast", displayName: "Breakfast", serviceTime: "07:30", endTime: "09:30" },
+  { mealType: "lunch", displayName: "Lunch", serviceTime: "12:00", endTime: "14:00" },
+  { mealType: "snacks", displayName: "Snacks", serviceTime: "17:00", endTime: "18:00" },
+  { mealType: "dinner", displayName: "Dinner", serviceTime: "20:00", endTime: "21:30" },
 ];
 
 /** Every meal is decided by 9 PM the evening before. */
@@ -83,6 +84,7 @@ export async function ensureProperty(
       mealType: slot.mealType,
       displayName: slot.displayName,
       serviceTime: slot.serviceTime,
+      endTime: slot.endTime,
       cutoffRule: DEFAULT_CUTOFF_RULE,
       serviceDays: [0, 1, 2, 3, 4, 5, 6],
       sortOrder: index,

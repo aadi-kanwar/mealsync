@@ -255,14 +255,14 @@ function DesignSystem() {
       <Section title="Meal rows">
         <Card className="max-w-lg">
           <ul className="divide-y divide-border">
-            <MealRow icon={Coffee} name="Breakfast" time="8:00 AM" value={mealChoice} onChange={setMealChoice}>
+            <MealRow icon={Coffee} name="Breakfast" time="7:30 – 9:30 AM" menu="Poha, tea" value={mealChoice} onChange={setMealChoice}>
               <span className="font-medium text-warning">Not saved yet</span>
             </MealRow>
-            <MealRow icon={Utensils} name="Lunch" time="1:00 PM" value="no" onChange={() => {}} />
-            <MealRow icon={Cookie} name="Snacks" time="5:00 PM" value={null} onChange={() => {}}>
+            <MealRow icon={Utensils} name="Lunch" time="12:00 – 2:00 PM" menu="Dal, rice, roti" value="no" onChange={() => {}} />
+            <MealRow icon={Cookie} name="Snacks" time="5:00 – 6:00 PM" value={null} onChange={() => {}}>
               <span className="font-medium text-warning">Not answered</span>
             </MealRow>
-            <MealRow icon={Moon} name="Dinner" time="8:30 PM" value="yes" locked>
+            <MealRow icon={Moon} name="Dinner" time="8:00 – 9:30 PM" menu="Paneer, roti" value="yes" locked>
               <span className="text-foreground-secondary">Closed. Contact the Warden to change it.</span>
             </MealRow>
           </ul>

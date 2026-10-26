@@ -12,7 +12,7 @@ import { Icon } from "@/components/ui/icon";
 import { MealRow } from "@/components/ui/meal-row";
 import type { YesNo } from "@/components/ui/yes-no-toggle";
 import { friendlyError } from "@/lib/errors";
-import { formatClock, formatTime, formatWhen } from "@/lib/format";
+import { formatTime, formatWhen, formatWindow } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DaySummary, isOpen, MEAL_ICONS, StaffChangeNote, type Day, type Meal } from "./meal-shared";
 
@@ -152,7 +152,8 @@ export function DayEditor({
                 key={meal.serviceId}
                 icon={MEAL_ICONS[meal.mealType]}
                 name={meal.name}
-                time={formatClock(meal.serviceTime)}
+                time={formatWindow(meal.serviceTime, meal.endTime)}
+                menu={meal.menu}
                 value={value}
                 locked={!mealOpen}
                 onChange={(next) => drafts.choose(meal, next)}

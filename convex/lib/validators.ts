@@ -34,6 +34,7 @@ export type CutoffRule = Infer<typeof vCutoffRule>;
 export const vSlotPolicySnapshot = v.object({
   displayName: v.string(),
   serviceTime: v.string(),
+  endTime: v.optional(v.string()),
   cutoffRule: vCutoffRule,
   timezone: v.string(),
 });

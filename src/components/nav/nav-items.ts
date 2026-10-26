@@ -1,7 +1,6 @@
 import {
   CalendarDays,
   ClipboardCheck,
-  History,
   LayoutDashboard,
   Palette,
   ShieldCheck,
@@ -9,6 +8,7 @@ import {
   UserRound,
   UserRoundX,
   Users,
+  UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import type { StaffRole } from "@convex/lib/validators";
@@ -28,7 +28,8 @@ export const STAFF_NAV: NavItem[] = [
   { href: "/staff/non-responders", label: "Non-responders", icon: UserRoundX, roles: ["warden"] },
   { href: "/staff/residents", label: "Residents", icon: Users, roles: ["warden"] },
   { href: "/staff/signups", label: "New sign-ups", icon: ClipboardCheck, roles: ["warden"] },
-  { href: "/staff/team", label: "Staff", icon: ShieldCheck, roles: ["admin"] },
+  { href: "/staff/team", label: "Staff", icon: ShieldCheck, roles: ["admin"], mobile: false },
+  { href: "/staff/menu", label: "Menu", icon: UtensilsCrossed, roles: ["admin"], mobile: false },
   { href: "/design", label: "Design system", icon: Palette, roles: ["warden"], mobile: false },
 ];
 
@@ -41,6 +42,5 @@ export function visibleNav(roles: readonly StaffRole[]): NavItem[] {
 export const RESIDENT_NAV: NavItem[] = [
   { href: "/home", label: "Tomorrow", icon: Sun, roles: [] },
   { href: "/upcoming", label: "This week", icon: CalendarDays, roles: [] },
-  { href: "/history", label: "History", icon: History, roles: [] },
   { href: "/profile", label: "Profile", icon: UserRound, roles: [] },
 ];

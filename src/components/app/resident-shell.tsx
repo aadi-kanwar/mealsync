@@ -3,8 +3,9 @@ import { BottomNav } from "@/components/nav/staff-nav";
 import { SignOutButton } from "./session";
 
 /**
- * Simple frame for resident screens: app name, PG name, and logout on every
- * screen. Approved residents also get the bottom navigation (`nav`).
+ * Simple frame for resident screens: app name and PG name. Approved
+ * residents get the bottom navigation (`nav`) and log out from Profile;
+ * everyone else gets a logout button in the header.
  */
 export function ResidentShell({
   pgName,
@@ -23,7 +24,8 @@ export function ResidentShell({
             <span className="font-semibold">MealSync</span>
             {pgName ? <span className="truncate text-xs text-foreground-secondary">{pgName}</span> : null}
           </div>
-          <SignOutButton />
+          {/* With the bottom navigation, logging out lives on the Profile screen. */}
+          {nav ? null : <SignOutButton />}
         </div>
       </header>
       <main

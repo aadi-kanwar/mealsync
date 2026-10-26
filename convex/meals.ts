@@ -4,6 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { appError } from "./lib/errors";
 import { internalMutation, residentMutation, residentQuery, staffMutation } from "./lib/functions";
 import { isoDateSchema } from "./lib/inputRules";
+import { loadMenuLookup } from "./lib/menus";
 import {
   approvedLeavesOf,
   ensureServices,
@@ -80,6 +81,7 @@ export const myDays = residentQuery({
     }
     const { property, resident, profile } = ctx.resident;
     const leaves = await approvedLeavesOf(ctx, resident._id);
+    const menuFor = await loadMenuLookup(ctx, property);
 
     const days = [];
     for (let i = 0; i < args.days; i += 1) {
@@ -114,6 +116,8 @@ export const myDays = residentQuery({
             mealType: service.mealType,
             name: service.policySnapshot.displayName,
             serviceTime: service.serviceTime,
+            endTime: service.endTime ?? null,
+            menu: menuFor(date, service.mealType)?.items ?? null,
             cutoffAt: service.cutoffAt,
             cancelled: service.status === "cancelled",
             selection: response?.selection ?? null,

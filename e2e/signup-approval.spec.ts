@@ -123,14 +123,13 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await expect(resident.getByRole("tab", { name: /^Today/ })).toHaveCount(0);
   await expect(resident.getByRole("tab")).toHaveCount(7);
 
-  // History is reachable and shows a friendly screen for a brand-new resident.
-  await resident.getByRole("link", { name: "History" }).click();
-  await expect(resident.getByRole("heading", { name: "History" })).toBeVisible();
-
-  // Profile shows the details given once at sign-up.
+  // Profile shows the details given once at sign-up, a short history and log out.
   await resident.getByRole("link", { name: "Profile" }).click();
   await expect(resident.getByText(name, { exact: true })).toBeVisible();
   await expect(resident.getByText("E2E-2", { exact: true })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: "History" })).toBeVisible();
+  await expect(resident.getByText("No past days yet.")).toBeVisible();
+  await expect(resident.getByRole("button", { name: "Log out" })).toBeVisible();
 
   // Moving out: the Warden sets a last day, then undoes it.
   await warden.goto("/staff/residents");

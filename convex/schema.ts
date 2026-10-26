@@ -45,6 +45,9 @@ export default defineSchema({
       // Show the in-app "cutoff is near" banner this many minutes before cutoff.
       bannerMinutesBeforeCutoff: v.number(),
     }),
+    // Two weekly menus alternate: the week starting on this Monday (and every
+    // second week from it) uses Menu A; the weeks in between use Menu B.
+    menuAWeekStart: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_org_slug", ["organizationId", "slug"]),
@@ -102,7 +105,8 @@ export default defineSchema({
     propertyId: v.id("properties"),
     mealType: vMealType,
     displayName: v.string(),
-    serviceTime: v.string(), // "HH:mm", property-local
+    serviceTime: v.string(), // "HH:mm", property-local: when the meal starts
+    endTime: v.string(), // "HH:mm": when it ends
     cutoffRule: vCutoffRule,
     serviceDays: v.array(v.number()), // 0 = Sunday ... 6 = Saturday
     sortOrder: v.number(),
@@ -113,6 +117,23 @@ export default defineSchema({
     .index("by_property", ["propertyId"])
     .index("by_property_mealType", ["propertyId", "mealType"]),
 
+  // The two weekly menus (A and B). One row per menu; `entries` has the
+  // dishes for each weekday and meal. One per property + label.
+  menus: defineTable({
+    organizationId: v.id("organizations"),
+    propertyId: v.id("properties"),
+    label: v.union(v.literal("A"), v.literal("B")),
+    entries: v.array(
+      v.object({
+        weekday: v.number(), // 0 = Sunday ... 6 = Saturday
+        mealType: vMealType,
+        items: v.string(),
+      }),
+    ),
+    updatedAt: v.number(),
+    updatedBy: v.id("users"),
+  }).index("by_property_label", ["propertyId", "label"]),
+
   mealServices: defineTable({
     organizationId: v.id("organizations"),
     propertyId: v.id("properties"),
@@ -120,6 +141,7 @@ export default defineSchema({
     mealType: vMealType, // one per property + date + mealType
     mealSlotId: v.id("mealSlots"),
     serviceTime: v.string(),
+    endTime: v.optional(v.string()), // absent on services created before end times existed
     cutoffAt: v.number(), // UTC epoch ms, frozen at creation
     status: vMealServiceStatus,
     policySnapshot: vSlotPolicySnapshot,

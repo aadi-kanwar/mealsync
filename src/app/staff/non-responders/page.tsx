@@ -12,7 +12,7 @@ import { Icon } from "@/components/ui/icon";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadingState } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/states";
-import { formatClock, formatDay, formatWhen } from "@/lib/format";
+import { formatDay, formatWhen, formatWindow } from "@/lib/format";
 
 export default function NonRespondersPage() {
   return (
@@ -47,7 +47,7 @@ function NonResponders() {
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 id={`nr-${meal.serviceId}`} className="text-lg font-semibold tracking-tight">
                   {meal.name}
-                  <span className="font-normal text-foreground-secondary"> · {formatClock(meal.serviceTime)}</span>
+                  <span className="font-normal text-foreground-secondary"> · {formatWindow(meal.serviceTime, meal.endTime)}</span>
                 </h2>
                 <p className="text-sm text-foreground-secondary tabular">
                   {meal.people.length} of {meal.eligible} not answered ·{" "}

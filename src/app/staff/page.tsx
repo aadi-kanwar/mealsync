@@ -35,6 +35,7 @@ function Dashboard() {
   const day = useQuery(api.dashboard.day, { date });
   const pendingCount = useQuery(api.residents.pendingCount);
   const canApprove = me?.staffRoles.some((r) => r === "admin" || r === "warden") ?? false;
+  const isAdmin = me?.staffRoles.includes("admin") ?? false;
   const query = date === today ? "" : `?date=${date}`;
 
   return (
@@ -44,9 +45,21 @@ function Dashboard() {
         title="Dashboard"
         description={`Headcount for ${formatDay(date, "EEEE d MMMM yyyy")}. Updates live as residents answer.`}
         actions={
-          <Button variant="secondary" asChild>
-            <Link href={`/staff/non-responders${query}`}>Non-responders</Link>
-          </Button>
+          <>
+            <Button variant="secondary" asChild>
+              <Link href={`/staff/non-responders${query}`}>Non-responders</Link>
+            </Button>
+            {isAdmin ? (
+              <>
+                <Button variant="secondary" asChild>
+                  <Link href="/staff/menu">Menu</Link>
+                </Button>
+                <Button variant="secondary" asChild>
+                  <Link href="/staff/team">Staff</Link>
+                </Button>
+              </>
+            ) : null}
+          </>
         }
       />
       <DatePicker date={date} today={today} onChange={setDate} />

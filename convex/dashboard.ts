@@ -4,6 +4,7 @@ import { staffQuery } from "./lib/functions";
 import { headcountFor, loadRoster } from "./lib/headcount";
 import { isoDateSchema } from "./lib/inputRules";
 import { servicesOn } from "./lib/meals";
+import { loadMenuLookup } from "./lib/menus";
 
 function parseDate(date: string): string {
   const parsed = isoDateSchema.safeParse(date);
@@ -24,12 +25,15 @@ export const day = staffQuery({
     const { property } = ctx.staff;
     const services = await servicesOn(ctx, property._id, date);
     const roster = await loadRoster(ctx, property._id);
+    const menuFor = await loadMenuLookup(ctx, property);
     const meals = await Promise.all(
       services.map(async (service) => ({
         serviceId: service._id,
         mealType: service.mealType,
         name: service.policySnapshot.displayName,
         serviceTime: service.serviceTime,
+        endTime: service.endTime ?? null,
+        menu: menuFor(date, service.mealType)?.items ?? null,
         cutoffAt: service.cutoffAt,
         cancelled: service.status === "cancelled",
         counts: (await headcountFor(ctx, service, roster)).counts,
@@ -57,6 +61,7 @@ export const nonResponders = staffQuery({
             serviceId: service._id,
             name: service.policySnapshot.displayName,
             serviceTime: service.serviceTime,
+            endTime: service.endTime ?? null,
             cutoffAt: service.cutoffAt,
             eligible: counts.eligible,
             people: nonResponders.map((r) => ({

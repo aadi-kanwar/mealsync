@@ -15,7 +15,9 @@ export type AuditAction =
   | "resident.move_out_cancelled"
   | "resident.stay_ended"
   | "resident.password_reset"
-  | "user.password_changed";
+  | "user.password_changed"
+  | "menu.updated"
+  | "menu.rotation_set";
 
 /**
  * Appends one audit entry. Callers must never put passwords, tokens or

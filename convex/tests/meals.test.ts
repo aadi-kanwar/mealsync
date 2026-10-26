@@ -91,11 +91,14 @@ describe("meal service generation", () => {
     expect(new Set(all.map((s) => s.serviceDate)).size).toBe(8);
     const breakfast = await service(t, TOMORROW, "breakfast");
     expect(breakfast).toMatchObject({
-      serviceTime: "08:00",
+      serviceTime: "07:30",
+      endTime: "09:30",
       status: "scheduled",
       cutoffAt: Date.UTC(2026, 9, 24, 15, 30), // 24 Oct 21:00 IST
       policySnapshot: {
         displayName: "Breakfast",
+        serviceTime: "07:30",
+        endTime: "09:30",
         cutoffRule: { daysBefore: 1, time: "21:00" },
         timezone: "Asia/Kolkata",
       },

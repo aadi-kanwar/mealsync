@@ -58,11 +58,13 @@ export async function ensureServices(
         mealType: slot.mealType,
         mealSlotId: slot._id,
         serviceTime: slot.serviceTime,
+        endTime: slot.endTime,
         cutoffAt: computeCutoffAt(date, slot.cutoffRule, property.timezone),
         status: "scheduled",
         policySnapshot: {
           displayName: slot.displayName,
           serviceTime: slot.serviceTime,
+          endTime: slot.endTime,
           cutoffRule: slot.cutoffRule,
           timezone: property.timezone,
         },
