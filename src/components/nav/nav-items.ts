@@ -4,7 +4,9 @@ import {
   History,
   LayoutDashboard,
   Palette,
+  ShieldCheck,
   Sun,
+  UserRound,
   UserRoundX,
   Users,
   type LucideIcon,
@@ -24,8 +26,9 @@ export type NavItem = {
 export const STAFF_NAV: NavItem[] = [
   { href: "/staff", label: "Dashboard", icon: LayoutDashboard, roles: ["warden"] },
   { href: "/staff/non-responders", label: "Non-responders", icon: UserRoundX, roles: ["warden"] },
+  { href: "/staff/residents", label: "Residents", icon: Users, roles: ["warden"] },
   { href: "/staff/signups", label: "New sign-ups", icon: ClipboardCheck, roles: ["warden"] },
-  { href: "/staff/team", label: "Staff", icon: Users, roles: ["admin"] },
+  { href: "/staff/team", label: "Staff", icon: ShieldCheck, roles: ["admin"] },
   { href: "/design", label: "Design system", icon: Palette, roles: ["warden"], mobile: false },
 ];
 
@@ -39,4 +42,5 @@ export const RESIDENT_NAV: NavItem[] = [
   { href: "/home", label: "Tomorrow", icon: Sun, roles: [] },
   { href: "/upcoming", label: "This week", icon: CalendarDays, roles: [] },
   { href: "/history", label: "History", icon: History, roles: [] },
+  { href: "/profile", label: "Profile", icon: UserRound, roles: [] },
 ];

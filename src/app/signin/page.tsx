@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { PASSWORD_MIN_LENGTH, passwordProblem } from "@convex/lib/inputRules";
+import { displayNameSchema, PASSWORD_MIN_LENGTH, passwordProblem, roomNumberSchema } from "@convex/lib/inputRules";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -36,8 +36,19 @@ function buildSchema(mode: Mode) {
       phone: z.string().trim().min(1, "Enter your mobile number."),
       password: z.string().min(1, "Enter your password."),
       confirm: z.string(),
+      displayName: z.string(),
+      roomNumber: z.string(),
     })
     .superRefine((values, ctx) => {
+      if (mode === "signUp") {
+        for (const [path, schema] of [
+          ["displayName", displayNameSchema],
+          ["roomNumber", roomNumberSchema],
+        ] as const) {
+          const result = schema.safeParse(values[path]);
+          if (!result.success) ctx.addIssue({ code: "custom", path: [path], message: result.error.issues[0].message });
+        }
+      }
       const e164 = toE164(values.country as CountryCode, values.phone);
       if (e164 === null) {
         ctx.addIssue({ code: "custom", path: ["phone"], message: "Enter a valid mobile number." });
@@ -123,7 +134,7 @@ function AuthForm({ mode }: { mode: Mode }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(buildSchema(mode)),
-    defaultValues: { country: "IN", phone: "", password: "", confirm: "" },
+    defaultValues: { country: "IN", phone: "", password: "", confirm: "", displayName: "", roomNumber: "" },
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -131,7 +142,18 @@ function AuthForm({ mode }: { mode: Mode }) {
     setServerError(null);
     const phone = toE164(values.country as CountryCode, values.phone)!;
     try {
-      await signIn("phone-password", { flow: mode, phone, password: values.password });
+      await signIn(
+        "phone-password",
+        mode === "signUp"
+          ? {
+              flow: mode,
+              phone,
+              password: values.password,
+              displayName: values.displayName.trim(),
+              roomNumber: values.roomNumber.trim(),
+            }
+          : { flow: mode, phone, password: values.password },
+      );
       router.replace("/");
     } catch (error) {
       setServerError(friendlyError(error));
@@ -143,6 +165,21 @@ function AuthForm({ mode }: { mode: Mode }) {
       <CardBody>
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           {serverError ? <Banner tone="danger">{serverError}</Banner> : null}
+          {mode === "signUp" ? (
+            <>
+              <Field id="displayName" label="Full name" error={errors.displayName?.message}>
+                {(p) => <Input {...p} {...form.register("displayName")} autoComplete="name" />}
+              </Field>
+              <Field
+                id="roomNumber"
+                label="Room number"
+                hint="You'll only be asked this once. The Warden will check it."
+                error={errors.roomNumber?.message}
+              >
+                {(p) => <Input {...p} {...form.register("roomNumber")} autoComplete="off" placeholder="e.g. 204" />}
+              </Field>
+            </>
+          ) : null}
           <Field id="country" label="Country">
             {(p) => (
               <NativeSelect {...p} {...form.register("country")} autoComplete="tel-country-code">

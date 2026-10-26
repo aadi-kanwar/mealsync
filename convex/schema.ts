@@ -57,6 +57,8 @@ export default defineSchema({
     phone: v.string(), // E.164, unique
     status: vRecordStatus,
     createdAt: v.number(),
+    // Set when staff reset the password; the person must choose a new one.
+    mustChangePassword: v.optional(v.boolean()),
   })
     .index("by_authUserId", ["authUserId"])
     .index("by_phone", ["phone"]),

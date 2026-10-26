@@ -6,7 +6,7 @@ import type { DataModel } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { FAILED_ATTEMPTS_LIMIT } from "./authLimits";
 import { appError } from "./lib/errors";
-import { normalizePhone, passwordProblem } from "./lib/inputRules";
+import { normalizePhone, passwordProblem, profileSchema } from "./lib/inputRules";
 
 export const PHONE_PASSWORD_PROVIDER = "phone-password";
 
@@ -14,8 +14,10 @@ export const PHONE_PASSWORD_PROVIDER = "phone-password";
  * Phone number + password login.
  *
  * The browser calls `signIn("phone-password", { flow, phone, password })`
- * where flow is "signIn" or "signUp". Every failure that could reveal
- * whether a number is registered returns the same SIGN_IN_FAILED message.
+ * where flow is "signIn" or "signUp". A sign-up also sends `displayName`
+ * and `roomNumber`, so the person is asked for them only once. Every
+ * failure that could reveal whether a number is registered returns the same
+ * SIGN_IN_FAILED message.
  */
 const PhonePassword = ConvexCredentials<DataModel>({
   id: PHONE_PASSWORD_PROVIDER,
@@ -30,25 +32,36 @@ const PhonePassword = ConvexCredentials<DataModel>({
     if (!gate.allowed) throw appError("TOO_MANY_ATTEMPTS");
 
     if (flow === "signUp") {
+      const profile = profileSchema.safeParse({ displayName: params.displayName, roomNumber: params.roomNumber });
+      if (!profile.success) throw appError("INVALID_INPUT", profile.error.issues[0]?.message);
       const problem = passwordProblem(password, phone);
       if (problem !== null) throw appError("WEAK_PASSWORD", problem);
       if (!(await accountExists(ctx, phone))) {
+        let userId;
         try {
           const { user } = await createAccount(ctx, {
             provider: PHONE_PASSWORD_PROVIDER,
             account: { id: phone, secret: password },
             profile: { phone },
           });
-          await ctx.runMutation(internal.authLimits.recordSignUp, {});
-          return { userId: user._id };
+          userId = user._id;
         } catch {
           // Most likely the same number signed up a moment ago.
           await ctx.runMutation(internal.authLimits.recordFailure, { phone });
           throw appError("SIGN_IN_FAILED");
         }
+        await ctx.runMutation(internal.authLimits.recordSignUp, {});
+        try {
+          await ctx.runMutation(internal.users.createProfileAtSignUp, { userId, ...profile.data });
+        } catch (error) {
+          // The account exists; the app will ask for name and room once more.
+          console.error("Saving the profile at sign-up failed", error);
+        }
+        return { userId };
       }
       // Number already registered: behave like a sign-in, so the person who
-      // owns it gets in and anyone else gets the same generic error.
+      // owns it gets in and anyone else gets the same generic error. The name
+      // and room sent are ignored; an existing profile is never changed here.
     }
     return await signInExisting(ctx, phone, password);
   },

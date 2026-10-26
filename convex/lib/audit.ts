@@ -10,7 +10,12 @@ export type AuditAction =
   | "staff.role_granted"
   | "staff.role_revoked"
   | "setup.first_admin_created"
-  | "dev.seeded";
+  | "dev.seeded"
+  | "resident.moved_out"
+  | "resident.move_out_cancelled"
+  | "resident.stay_ended"
+  | "resident.password_reset"
+  | "user.password_changed";
 
 /**
  * Appends one audit entry. Callers must never put passwords, tokens or

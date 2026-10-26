@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 // sign-in form's own validation.
 
 test("signed-out visitors are sent to the sign-in page", async ({ page }) => {
-  for (const path of ["/", "/staff", "/staff/signups", "/staff/team", "/home", "/upcoming", "/history", "/pending", "/onboarding"]) {
+  for (const path of ["/", "/staff", "/staff/signups", "/staff/team", "/home", "/upcoming", "/history", "/profile", "/change-password", "/staff/residents", "/pending", "/onboarding"]) {
     await page.goto(path);
     await expect(page, path).toHaveURL(/\/signin$/);
   }
@@ -25,6 +25,9 @@ test("sign-in form explains mistakes in plain language", async ({ page }) => {
 test("create-account form checks password rules before sending anything", async ({ page }) => {
   await page.goto("/signin");
   await page.getByRole("tab", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText("Enter your full name.")).toBeVisible();
+  await expect(page.getByText("Enter your room number.")).toBeVisible();
   await page.getByLabel("Mobile number").fill("98765 43210");
   await page.getByLabel("Password", { exact: true }).fill("short");
   await page.getByLabel("Type the password again").fill("different");

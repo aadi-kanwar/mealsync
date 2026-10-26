@@ -5,10 +5,16 @@ import { createProperty, errorCode, setupTest, type T } from "./harness.test-uti
 
 const PASSWORD = "plain-tea-42";
 
-function signIn(t: T, flow: "signIn" | "signUp", phone: string, password: string) {
+function signIn(
+  t: T,
+  flow: "signIn" | "signUp",
+  phone: string,
+  password: string,
+  profile: { displayName?: string; roomNumber?: string } = { displayName: "Asha Rao", roomNumber: "204" },
+) {
   return t.action(api.auth.signIn, {
     provider: "phone-password",
-    params: { flow, phone, password },
+    params: flow === "signUp" ? { flow, phone, password, ...profile } : { flow, phone, password },
   });
 }
 
@@ -79,6 +85,47 @@ describe("phone + password sign-up and sign-in", () => {
       })),
     );
     expect(dump).not.toContain(PASSWORD);
+  });
+});
+
+describe("name and room are asked once, at sign-up", () => {
+  test("sign-up creates the profile and a pending resident in one step, and is audited", async () => {
+    const t = await setup();
+    await signIn(t, "signUp", "98765 43210", PASSWORD, { displayName: "  Asha Rao ", roomNumber: " 204 " });
+    const state = await t.run(async (ctx) => ({
+      profiles: await ctx.db.query("userProfiles").collect(),
+      residents: await ctx.db.query("residents").collect(),
+      audit: await ctx.db.query("auditLogs").collect(),
+    }));
+    expect(state.profiles.map((p) => [p.displayName, p.phone])).toEqual([["Asha Rao", "+919876543210"]]);
+    expect(state.residents.map((r) => [r.displayName, r.roomNumber, r.status])).toEqual([["Asha Rao", "204", "pending"]]);
+    expect(state.audit.map((a) => a.action)).toContain("resident.signed_up");
+  });
+
+  test("a missing or invalid name or room is refused before any account is created", async () => {
+    const t = await setup();
+    expect(await errorCode(signIn(t, "signUp", "9876543210", PASSWORD, { roomNumber: "204" }))).toBe("INVALID_INPUT");
+    expect(await errorCode(signIn(t, "signUp", "9876543210", PASSWORD, { displayName: "Asha Rao" }))).toBe(
+      "INVALID_INPUT",
+    );
+    expect(
+      await errorCode(signIn(t, "signUp", "9876543210", PASSWORD, { displayName: "Asha Rao", roomNumber: "<b>" })),
+    ).toBe("INVALID_INPUT");
+    expect(await t.run((ctx) => ctx.db.query("users").collect())).toHaveLength(0);
+  });
+
+  test("signing up again with a registered number never changes the saved name or room", async () => {
+    const t = await setup();
+    await signIn(t, "signUp", "9876543210", PASSWORD);
+    await signIn(t, "signUp", "9876543210", PASSWORD, { displayName: "Someone Else", roomNumber: "999" });
+    const residents = await t.run((ctx) => ctx.db.query("residents").collect());
+    expect(residents.map((r) => [r.displayName, r.roomNumber])).toEqual([["Asha Rao", "204"]]);
+  });
+
+  test("signing in needs only the mobile number and password", async () => {
+    const t = await setup();
+    await signIn(t, "signUp", "9876543210", PASSWORD);
+    expect((await signIn(t, "signIn", "9876543210", PASSWORD)).tokens?.token).toBeTruthy();
   });
 });
 

@@ -14,10 +14,12 @@ cooking targets, buffers, actuals or kitchen reports.
 
 ### What works today
 
-- **Create an account / sign in** with a mobile number and a password.
-- **New residents wait for approval.** After signing up, a person enters their
-  name and room number and then sees "Waiting for approval". They can't choose
-  meals and aren't counted until a Warden or Admin approves them.
+- **Create an account** with full name, room number, mobile number and a
+  password, all on one form. Name and room are asked only once. After that,
+  **sign in** needs just the mobile number and password.
+- **New residents wait for approval.** After signing up a person sees
+  "Waiting for approval". They can't choose meals and aren't counted until a
+  Warden or Admin approves them.
 - **Choosing meals** (approved residents):
   - *Tomorrow* (the home screen): tomorrow's date, "Choose by 9:00 PM today"
     with the time left, and an "x of 4 answered" bar. Each meal is one row
@@ -29,6 +31,7 @@ cooking targets, buffers, actuals or kitchen reports.
     Tap a day, choose, and one **Save** saves every day you changed.
   - *History*: past days, what was chosen and when, and whether a staff
     member changed it.
+  - *Profile*: their name, room and number, and **Change password**.
   - A meal nobody answered stays **Not answered**; it is never treated as No.
   - After the cutoff a meal is locked. The server checks the time with its
     own clock, so changing the phone's clock doesn't help.
@@ -45,6 +48,17 @@ cooking targets, buffers, actuals or kitchen reports.
     Numbers update live. Also shows sign-ups waiting.
   - *Non-responders*: names and rooms of who hasn't answered each meal, so
     the Warden can remind them. Phone numbers are never shown here.
+  - *Residents*: everyone approved, with search and "Current" / "Moved out"
+    tabs.
+    - **Moved out**: enter their last day. They're counted up to and
+      including that day, not after. Their history is kept. Entered by
+      mistake? **Undo move-out**. The day after the last day they're moved to
+      "Moved out" automatically.
+    - **Reset password**: for a resident who forgot theirs. You get a
+      temporary password (like `kq7m-p3rx`) to tell them in person; it's
+      shown once. Their phone is signed out, and when they sign in with it
+      they must choose their own new password. Staff passwords can't be
+      reset here.
   - *New sign-ups*: approve (confirm room and start date) or reject.
   - *Staff* (Admin only): make someone an Admin or Warden, or take it away.
     There must always be at least one Admin.
@@ -58,8 +72,8 @@ cooking targets, buffers, actuals or kitchen reports.
 | Role | Can do |
 |---|---|
 | Admin | Everything the Warden can, plus managing staff. |
-| Warden | Approve or reject new sign-ups; see the headcount and non-responders. |
-| Resident | Sign up, sign in, see their approval status; once approved, choose meals before the cutoff and see their own history. |
+| Warden | Approve or reject new sign-ups; see the headcount and non-responders; mark residents as moved out; reset a resident's forgotten password. |
+| Resident | Sign up (name and room once), sign in, see their approval status; once approved, choose meals before the cutoff, see their own history, change their password. |
 
 ### First-time setup (one time only)
 
@@ -84,8 +98,10 @@ You do the clicks; Claude does the technical parts.
 
 ### Forgotten passwords
 
-There's no SMS, so residents can't reset their own password yet. A
-staff-side "reset password" tool is planned for Phase 4 (resident management).
+There's no SMS, so residents can't reset their own password. A Warden or Admin
+opens **Residents**, finds the person and taps **Reset password** (see above).
+Residents who remember their password can change it under **Profile → Change
+password**.
 
 ---
 
@@ -121,6 +137,9 @@ functions:
   doesn't reveal who has an account), and at most 30 new sign-ups per hour.
   All credential failures return one generic message.
 - Passwords are hashed with Scrypt by Convex Auth; never logged or audited.
+- A session must still exist for its login token to be accepted
+  (`getViewer`), so a password reset or change signs other devices out at
+  once, not when their token expires. Staff resets never touch staff accounts.
 
 ### Layout
 
@@ -129,11 +148,13 @@ convex/
   schema.ts            all tables (organizationId + propertyId everywhere)
   auth.ts              phone + password provider
   authLimits.ts        sign-in rate limits (internal)
-  users.ts             me, completeProfile
+  users.ts             me, completeProfile (fallback), changePassword
+  access.ts            permission checks used by actions (internal)
   meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
   crons.ts             daily job creating the next 7 days of meal services
   dashboard.ts         day (headcount per meal), nonResponders
-  residents.ts         listPending, pendingCount, approve, reject
+  residents.ts         listPending, pendingCount, approve, reject, list,
+                       moveOut, cancelMoveOut, resetPassword, endStays (daily)
   staff.ts             list, grantRole, revokeRole (Admin)
   setup.ts             createProperty, makeFirstAdmin (internal, one-time)
   seed.ts              development-only test data (internal, env-guarded)
@@ -142,8 +163,10 @@ convex/
                        headcount.ts (who is counted; Yes / No / Not answered)
   tests/               backend tests (*.test.ts)
 src/
-  app/                 pages: /signin /onboarding /pending /home /upcoming /history /design
-                       /staff (dashboard) /staff/non-responders /staff/signups /staff/team
+  app/                 pages: /signin /onboarding (fallback) /pending /home /upcoming
+                       /history /profile /change-password /design
+                       /staff (dashboard) /staff/non-responders /staff/residents
+                       /staff/signups /staff/team
   components/ui/       design-system components
   proxy.ts             redirects signed-out visitors to /signin
 e2e/                   Playwright tests

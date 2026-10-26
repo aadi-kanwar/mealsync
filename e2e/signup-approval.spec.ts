@@ -32,6 +32,9 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   const resident = await residentContext.newPage();
   await resident.goto("/signin");
   await resident.getByRole("tab", { name: "Create account" }).click();
+  // Name and room are asked once, on the same form.
+  await resident.getByLabel("Full name").fill(name);
+  await resident.getByLabel("Room number").fill("E2E-1");
   await resident.getByLabel("Mobile number").fill(phone);
   await resident.getByLabel("Password", { exact: true }).fill(password);
   await resident.getByLabel("Type the password again").fill(password);
@@ -39,14 +42,12 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
 
   // The app allows 30 new sign-ups per hour (abuse protection). Many test
   // runs in one hour reach it; say so plainly instead of timing out.
-  const welcome = resident.getByRole("heading", { name: /Welcome/ });
+  const waiting = resident.getByRole("heading", { name: "Waiting for approval" });
   const limited = resident.getByText(/Too many attempts/);
-  await expect(welcome.or(limited)).toBeVisible();
+  // Creating an account (password hashing + profile) can take a few seconds.
+  await expect(waiting.or(limited)).toBeVisible({ timeout: 15_000 });
   test.skip(await limited.isVisible(), "The hourly limit on new sign-ups was reached; run again later.");
-  await resident.getByLabel("Full name").fill(name);
-  await resident.getByLabel("Room number").fill("E2E-1");
-  await resident.getByRole("button", { name: "Continue" }).click();
-  await expect(resident.getByRole("heading", { name: "Waiting for approval" })).toBeVisible();
+  await expect(resident.getByText("(room E2E-1)", { exact: false })).toBeVisible();
 
   // A pending resident can't open staff screens.
   await resident.goto("/staff/signups");
@@ -125,6 +126,41 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   // History is reachable and shows a friendly screen for a brand-new resident.
   await resident.getByRole("link", { name: "History" }).click();
   await expect(resident.getByRole("heading", { name: "History" })).toBeVisible();
+
+  // Profile shows the details given once at sign-up.
+  await resident.getByRole("link", { name: "Profile" }).click();
+  await expect(resident.getByText(name, { exact: true })).toBeVisible();
+  await expect(resident.getByText("E2E-2", { exact: true })).toBeVisible();
+
+  // Moving out: the Warden sets a last day, then undoes it.
+  await warden.goto("/staff/residents");
+  await warden.getByLabel("Search by name or room").fill(name);
+  const person = warden.getByRole("listitem").filter({ hasText: name });
+  await person.getByRole("button", { name: "Moved out" }).click();
+  await warden.getByRole("dialog").getByRole("button", { name: "Confirm move-out" }).click();
+  await expect(person.getByText(/^Last day /)).toBeVisible();
+  await person.getByRole("button", { name: "Undo move-out" }).click();
+  await warden.getByRole("dialog").getByRole("button", { name: "Undo move-out" }).click();
+  await expect(person.getByText(/^Last day /)).toHaveCount(0);
+
+  // Forgotten password: the Warden resets it; the resident is signed out,
+  // signs in with the temporary one and must choose a new password.
+  await person.getByRole("button", { name: "Reset password" }).click();
+  await warden.getByRole("dialog").getByRole("button", { name: "Reset password" }).click();
+  const temporary = (await warden.getByRole("dialog").getByText(/^[a-z2-9]{4}-[a-z2-9]{4}$/).textContent())!;
+  await warden.getByRole("dialog").getByRole("button", { name: "Done" }).click();
+  await expect(person.getByText("Temporary password")).toBeVisible();
+
+  await expect(resident).toHaveURL(/\/signin$/, { timeout: 15_000 });
+  await resident.getByLabel("Mobile number").fill(phone);
+  await resident.getByLabel("Password", { exact: true }).fill(temporary);
+  await resident.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(resident.getByRole("heading", { name: "Choose a new password" })).toBeVisible();
+  await resident.getByLabel("New password", { exact: true }).fill("e2e-new-pass");
+  await resident.getByLabel("Type the new password again").fill("e2e-new-pass");
+  await resident.getByRole("button", { name: "Save new password" }).click();
+  await expect(resident.getByRole("heading", { name: /^Tomorrow/ })).toBeVisible();
+  await expect(person.getByText("Temporary password")).toHaveCount(0);
 
   await residentContext.close();
   await wardenContext.close();

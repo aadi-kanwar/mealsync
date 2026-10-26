@@ -13,4 +13,8 @@ crons.daily(
   {},
 );
 
+// Every day at 00:10 India time, residents whose last day has passed are
+// marked as moved out.
+crons.daily("end finished stays", { hourUTC: 18, minuteUTC: 40 }, internal.residents.endStays, {});
+
 export default crons;

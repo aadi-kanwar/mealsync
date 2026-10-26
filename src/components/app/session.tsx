@@ -24,6 +24,7 @@ export function destinationFor(me: Me | null): string {
   if (me === null) return "/signin";
   if (me.profile === null) return "/onboarding";
   if (me.profile.status !== "active") return "/pending";
+  if (me.profile.mustChangePassword) return "/change-password";
   if (me.staffRoles.length > 0) return "/staff";
   if (me.resident?.status === "active") return "/home";
   return "/pending";

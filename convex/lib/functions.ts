@@ -11,6 +11,9 @@
  *   staffQuery/Mutation  - an active staff member with one of `roles`
  *                          (an Admin is always allowed: Admins can do everything)
  *   residentQuery/Mutation - an approved, active resident of the property
+ *   signedInAction, staffAction - the same checks for actions (needed for
+ *                          password changes), done by an internal query
+ *                          before the action's own code runs
  *
  * Internal wrappers (never callable from a browser; only from other backend
  * functions, scheduled jobs, or the owner via the Convex dashboard / CLI):
@@ -19,8 +22,10 @@
  * All mutation wrappers also make `mealActivityLog` and `auditLogs`
  * append-only: patch / replace / delete on those tables throws.
  */
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
+import { makeFunctionReference } from "convex/server";
 import {
+  customAction,
   customCtx,
   customMutation,
   customQuery,
@@ -28,6 +33,7 @@ import {
 import { wrapDatabaseWriter } from "convex-helpers/server/rowLevelSecurity";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import {
+  action as rawAction,
   internalAction as rawInternalAction,
   internalMutation as rawInternalMutation,
   internalQuery as rawInternalQuery,
@@ -51,10 +57,17 @@ export type SignedInViewer = {
   authUser: Doc<"users">;
 };
 
-/** The signed-in account, or null. Identity always comes from the session, never from arguments. */
+/**
+ * The signed-in account, or null. Identity always comes from the session,
+ * never from arguments. The session must still exist: when a password is
+ * reset or changed, other sessions are deleted, and a login token issued
+ * before that stops working at once rather than when it expires.
+ */
 export async function getViewer(ctx: ReadCtx): Promise<SignedInViewer | null> {
   const userId = await getAuthUserId(ctx);
   if (userId === null) return null;
+  const sessionId = await getAuthSessionId(ctx);
+  if (sessionId === null || (await ctx.db.get(sessionId)) === null) return null;
   const authUser = await ctx.db.get(userId);
   if (authUser === null) return null;
   return { userId, authUser };
@@ -216,6 +229,37 @@ export const residentMutation = customMutation(
   customCtx(async (ctx) => ({
     resident: await requireActiveResident(ctx),
     db: guardedDb(ctx),
+  })),
+);
+
+// Actions have no database access, so they check the caller through these
+// internal queries (convex/access.ts), which run the same helpers as above.
+// Referenced by name to avoid a circular import of the generated API.
+
+export type ActionViewer = { userId: Id<"users">; phone: string; mustChangePassword: boolean };
+export type ActionStaff = {
+  userId: Id<"users">;
+  propertyId: Id<"properties">;
+  displayName: string;
+  roles: StaffRole[];
+};
+
+const viewerForAction = makeFunctionReference<"query", Record<string, never>, ActionViewer>(
+  "access:viewerForAction",
+);
+const staffForAction = makeFunctionReference<"query", { roles: StaffRole[] }, ActionStaff>(
+  "access:staffForAction",
+);
+
+export const signedInAction = customAction(
+  rawAction,
+  customCtx(async (ctx) => ({ viewer: await ctx.runQuery(viewerForAction, {}) })),
+);
+
+export const staffAction = customAction(
+  rawAction,
+  customCtx(async (ctx, extra: RolesArg) => ({
+    staff: await ctx.runQuery(staffForAction, { roles: [...extra.roles] }),
   })),
 );
 
