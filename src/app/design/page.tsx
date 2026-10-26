@@ -389,7 +389,7 @@ function DesignSystem() {
             <PageHeader
               title="Dashboard"
               description="Tuesday, 3 November"
-              actions={<Button variant="secondary">Non-responders</Button>}
+              actions={<Button variant="secondary">Responses</Button>}
             />
           </CardBody>
         </Card>

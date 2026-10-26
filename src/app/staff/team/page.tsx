@@ -32,7 +32,7 @@ import { formatDateTime } from "@/lib/format";
 const ROLE_LABEL: Record<StaffRole, string> = { admin: "Admin", warden: "Warden" };
 const ROLE_HELP: Record<StaffRole, string> = {
   admin: "Everything, including managing staff.",
-  warden: "Approves sign-ups and sees the meal headcount and non-responders.",
+  warden: "Approves sign-ups and sees the meal headcount and residents' responses.",
 };
 
 export default function TeamPage() {

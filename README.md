@@ -49,8 +49,9 @@ cooking targets, buffers, actuals or kitchen reports.
     any date). For each meal it shows how many residents said **Yes**, said
     **No**, and have **Not answered**, plus whether choices are still open.
     Numbers update live. Also shows sign-ups waiting.
-  - *Non-responders*: names and rooms of who hasn't answered each meal, so
-    the Warden can remind them. Phone numbers are never shown here.
+  - *Responses*: every resident counted that day, one line each: name, room,
+    when they last saved, and B L S D boxes (✓ Yes, ✕ No, – not answered),
+    so the Warden can see who to remind. Phone numbers are never shown here.
   - *Residents*: everyone approved, with search and "Current" / "Moved out"
     tabs.
     - **Moved out**: enter their last day. They're counted up to and
@@ -80,7 +81,7 @@ cooking targets, buffers, actuals or kitchen reports.
 | Role | Can do |
 |---|---|
 | Admin | Everything the Warden can, plus managing staff and the menus. |
-| Warden | Approve or reject new sign-ups; see the headcount and non-responders; mark residents as moved out; reset a resident's forgotten password. |
+| Warden | Approve or reject new sign-ups; see the headcount and every resident's responses; mark residents as moved out; reset a resident's forgotten password. |
 | Resident | Sign up (name and room once), sign in, see their approval status; once approved, choose meals before the cutoff, see their own history, change their password. |
 
 ### First-time setup (one time only)
@@ -160,7 +161,7 @@ convex/
   access.ts            permission checks used by actions (internal)
   meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
   crons.ts             daily job creating the next 7 days of meal services
-  dashboard.ts         day (headcount per meal), nonResponders
+  dashboard.ts         day (headcount per meal), responses (each resident's choices)
   menus.ts             get, save, setThisWeek (Admin)
   residents.ts         listPending, pendingCount, approve, reject, list,
                        moveOut, cancelMoveOut, resetPassword, endStays (daily)
@@ -175,7 +176,7 @@ convex/
 src/
   app/                 pages: /signin /onboarding (fallback) /pending /home /upcoming
                        /profile /change-password /design
-                       /staff (dashboard) /staff/non-responders /staff/residents
+                       /staff (dashboard) /staff/responses /staff/residents
                        /staff/signups /staff/team /staff/menu
   components/ui/       design-system components
   proxy.ts             redirects signed-out visitors to /signin
