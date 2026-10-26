@@ -4,10 +4,21 @@ import { expect, test } from "@playwright/test";
 // sign-in form's own validation.
 
 test("signed-out visitors are sent to the sign-in page", async ({ page }) => {
-  for (const path of ["/", "/staff", "/staff/signups", "/staff/team", "/home", "/upcoming", "/profile", "/staff/menu", "/change-password", "/staff/residents", "/pending", "/onboarding"]) {
+  for (const path of ["/staff", "/staff/settings", "/staff/signups", "/staff/team", "/home", "/upcoming", "/profile", "/staff/menu", "/change-password", "/staff/residents", "/pending", "/onboarding"]) {
     await page.goto(path);
     await expect(page, path).toHaveURL(/\/signin$/);
   }
+});
+
+test("the landing page offers two ways in", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "MealSync" })).toBeVisible();
+  await page.getByRole("link", { name: "PG admins" }).click();
+  await expect(page.getByRole("heading", { name: "Admin sign in" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Create account" })).toHaveCount(0);
+  await page.getByRole("link", { name: "MealSync home" }).click();
+  await page.getByRole("link", { name: "Residents and wardens" }).click();
+  await expect(page.getByRole("tab", { name: "Create account" })).toBeVisible();
 });
 
 test("sign-in form explains mistakes in plain language", async ({ page }) => {

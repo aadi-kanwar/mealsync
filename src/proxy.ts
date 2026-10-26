@@ -10,6 +10,7 @@ import {
  * checked again by the Convex backend.
  */
 const isSignInPage = createRouteMatcher(["/signin"]);
+const isLandingPage = createRouteMatcher(["/"]);
 const isDesignPage = createRouteMatcher(["/design"]);
 
 export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
@@ -19,6 +20,8 @@ export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) 
   }
   // The design reference is open without login only on a developer's machine.
   if (isDesignPage(request) && process.env.NODE_ENV === "development") return undefined;
+  // The landing page is public; signed-in people are sent on from there.
+  if (isLandingPage(request)) return undefined;
   if (!signedIn) return nextjsMiddlewareRedirect(request, "/signin");
 });
 

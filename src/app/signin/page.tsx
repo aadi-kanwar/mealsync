@@ -7,8 +7,9 @@ import {
   parsePhoneNumberFromString,
   type CountryCode,
 } from "libphonenumber-js";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { displayNameSchema, PASSWORD_MIN_LENGTH, passwordProblem, roomNumberSchema } from "@convex/lib/inputRules";
@@ -92,13 +93,41 @@ const COUNTRY_OPTIONS = COUNTRY_NAMES.map(([code, name]) => ({
 }));
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignIn />
+    </Suspense>
+  );
+}
+
+function SignIn() {
+  // ?as=admin: the admins' way in, from the landing page. Sign in only:
+  // admin accounts are never created from a public form.
+  const admin = useSearchParams().get("as") === "admin";
   const [mode, setMode] = useState<Mode>("signIn");
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 px-4 py-10">
+      <Link href="/" className="-my-2 self-start py-2 text-sm text-foreground-secondary hover:text-foreground">
+        ← MealSync home
+      </Link>
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">MealSync</h1>
-        <p className="text-foreground-secondary">Tell the PG which meals you&apos;ll eat.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{admin ? "Admin sign in" : "MealSync"}</h1>
+        <p className="text-foreground-secondary">
+          {admin ? "For PG owners and managers." : "Tell the PG which meals you'll eat."}
+        </p>
       </div>
+      {admin ? (
+        <AuthForm mode="signIn" admin />
+      ) : (
+        <ResidentTabs mode={mode} setMode={setMode} />
+      )}
+    </main>
+  );
+}
+
+function ResidentTabs({ mode, setMode }: { mode: Mode; setMode: (mode: Mode) => void }) {
+  return (
+    <>
       <div role="tablist" aria-label="Sign in or create account" className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
         {(
           [
@@ -124,11 +153,11 @@ export default function SignInPage() {
       </div>
       {/* Re-mount the form when switching so errors from one mode don't linger. */}
       <AuthForm key={mode} mode={mode} />
-    </main>
+    </>
   );
 }
 
-function AuthForm({ mode }: { mode: Mode }) {
+function AuthForm({ mode, admin = false }: { mode: Mode; admin?: boolean }) {
   const { signIn } = useAuthActions();
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -226,7 +255,9 @@ function AuthForm({ mode }: { mode: Mode }) {
             {mode === "signIn" ? "Sign in" : "Create account"}
           </Button>
           <p className="text-sm text-foreground-secondary">
-            {mode === "signIn"
+            {admin
+              ? "Admin accounts are set up for you; there's no sign-up here. Forgot your password? Contact MealSync support."
+              : mode === "signIn"
               ? "Forgot your password? Contact the PG office."
               : "After you sign up, the Warden checks your details before you can choose meals."}
           </p>

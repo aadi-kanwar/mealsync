@@ -3,6 +3,7 @@ import {
   ClipboardCheck,
   LayoutDashboard,
   Palette,
+  Settings,
   ShieldCheck,
   Sun,
   UserRound,
@@ -30,6 +31,7 @@ export const STAFF_NAV: NavItem[] = [
   { href: "/staff/signups", label: "New sign-ups", icon: ClipboardCheck, roles: ["warden"] },
   { href: "/staff/team", label: "Staff", icon: ShieldCheck, roles: ["admin"], mobile: false },
   { href: "/staff/menu", label: "Menu", icon: UtensilsCrossed, roles: ["admin"], mobile: false },
+  { href: "/staff/settings", label: "Settings", icon: Settings, roles: ["admin"], mobile: false },
   { href: "/design", label: "Design system", icon: Palette, roles: ["warden"], mobile: false },
 ];
 

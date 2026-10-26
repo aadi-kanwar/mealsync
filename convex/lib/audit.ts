@@ -17,7 +17,8 @@ export type AuditAction =
   | "resident.password_reset"
   | "user.password_changed"
   | "menu.updated"
-  | "menu.rotation_set";
+  | "menu.rotation_set"
+  | "settings.updated";
 
 /**
  * Appends one audit entry. Callers must never put passwords, tokens or

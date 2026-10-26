@@ -57,6 +57,9 @@ function Dashboard() {
                 <Button variant="secondary" asChild>
                   <Link href="/staff/team">Staff</Link>
                 </Button>
+                <Button variant="secondary" asChild>
+                  <Link href="/staff/settings">Settings</Link>
+                </Button>
               </>
             ) : null}
           </>

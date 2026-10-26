@@ -29,6 +29,7 @@ import type * as meals from "../meals.js";
 import type * as menus from "../menus.js";
 import type * as residents from "../residents.js";
 import type * as seed from "../seed.js";
+import type * as settings from "../settings.js";
 import type * as setup from "../setup.js";
 import type * as staff from "../staff.js";
 import type * as users from "../users.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   menus: typeof menus;
   residents: typeof residents;
   seed: typeof seed;
+  settings: typeof settings;
   setup: typeof setup;
   staff: typeof staff;
   users: typeof users;
