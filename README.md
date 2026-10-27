@@ -234,6 +234,7 @@ npm run test:e2e            # Playwright against a production build; full flow n
 npm run codegen:offline     # regenerate convex/_generated without a deployment
 npx convex run setup:createProperty '{"organizationName":"…","propertyName":"…"}'
 npx convex run seed:dev     # dev only: TEST accounts +919000000001…6
+npx convex run seed:removeTestSignups   # dev only: delete the "E2E Person" accounts the browser tests create
 ```
 
 Development TEST accounts created by `seed:dev` (password = `DEV_SEED_PASSWORD`):
