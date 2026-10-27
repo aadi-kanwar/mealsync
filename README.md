@@ -29,7 +29,8 @@ cooking targets, buffers, actuals or kitchen reports.
   - *This week*: a row of day tabs for the next 7 days. Each tab shows how
     many meals are still unanswered (or a ✓ when done, a lock when closed).
     Tap a day, choose, and one **Save** saves every day you changed.
-  - *Profile*: their name, room and number, **Change password**, a short
+  - *Profile*: their name, room and number, **Change password**,
+    **Phone reminders** (turn on/off for this phone), a short
     **History** (one line per past day: B L S D with ✓ Yes, ✕ No or – not
     answered), and **Log out**.
   - Each meal shows its time window and, once the Admin has filled in the
@@ -41,9 +42,28 @@ cooking targets, buffers, actuals or kitchen reports.
     before → after, when). Pressing Save without changing anything adds nothing.
   - Meals are prepared for the coming week automatically every night (and on
     demand if someone opens the app first).
-  - Meal timings: Breakfast 7:30–9:30 AM, Lunch 12:00–2:00 PM, Snacks
-    5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by **6:00 AM on
-    the same day**.
+  - Meal timings (default): Breakfast 7:30–9:30 AM, Lunch 12:00–2:00 PM,
+    Snacks 5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by **6:00 AM
+    on the same day**. The Admin changes these in **Settings → Meals &
+    deadline**: each meal's name, whether it's served, which days, its
+    times, the deadline (any time, on the day or the day before) and how
+    long before the deadline residents' screens turn amber.
+- **Add to home screen:** after signing in, everyone gets a pop-up asking to
+  add Dine as an app on their home screen / app drawer, with step-by-step
+  instructions for both **Android** and **iPhone** (their own phone shown
+  first), plus a one-tap **Add it for me** where Chrome offers it. It comes back on
+  every visit until Dine is opened from the icon. **Not now** hides it
+  until the next visit.
+- **Phone reminders:** browsers only allow notifications after the person
+  taps Allow, so they can't be switched on for everyone automatically.
+  Residents get a **Turn on meal reminders** pop-up on every visit until
+  they're on; on a phone where notifications are already allowed (e.g.
+  signing in again), they're turned on without asking. Residents who turn
+  them on get a phone
+  notification at the times the Admin sets (default **9:00 PM and 5:00 AM**)
+  if they still haven't chosen all meals for the next day that's open. Works
+  in Chrome on Android; on iPhone, Dine must first be added to the Home
+  Screen (Share → Add to Home Screen).
 - **Staff screens** (`/staff`, Admin and Warden):
   - *Dashboard* (the headcount): one compact row per meal, so the whole day
     fits on one screen. Pick a day (Yesterday / Today / Tomorrow, or the
@@ -55,6 +75,8 @@ cooking targets, buffers, actuals or kitchen reports.
     so the Warden can see who to remind. Phone numbers are never shown here.
   - *Residents*: everyone approved, with search and "Current" / "Moved out"
     tabs.
+    - **Edit**: correct a name or room (a typo, or a room change). Past
+      days keep the name and room they were saved under.
     - **Moved out**: enter their last day. They're counted up to and
       including that day, not after. Their history is kept. Entered by
       mistake? **Undo move-out**. The day after the last day they're moved to
@@ -72,8 +94,18 @@ cooking targets, buffers, actuals or kitchen reports.
     week**. After that they alternate by themselves every Monday, and
     residents see each meal's dishes. On a phone, Menu and Staff are linked
     from the top of the Dashboard.
-- **Design system** (`/design`): a reference page of every colour, text size
-  and building block the app uses.
+  - *Reports* (Admin only): all residents, or **one resident** (current or
+    moved out); choose dates (up to 100 days; "This month",
+    "Last month", "Last 7 days" shortcuts), see totals per meal, and
+    **Download CSV**: one row per meal per day with residents counted, Yes,
+    No, Not answered and % answered (for one resident: their choice for each
+    meal and when they saved it). Opens in Excel or Google Sheets.
+  - *Settings* (Admin only), in sections: **PG details**, **Meals &
+    deadline** (changes also apply to coming days still open; closed meals
+    never change), **Phone reminders** (on/off, up to 4 times a day),
+    **Resident messages**, and a link to the **Design system** (a reference
+    page of every colour, text size and building block). Wardens don't see
+    Settings, Reports or the Design system.
 - Every approval, rejection and role change is written to a permanent
   **audit log** that nobody can edit or delete.
 
@@ -82,15 +114,15 @@ cooking targets, buffers, actuals or kitchen reports.
 - **Question of the day and food-waste message:** above their meals,
   residents see one of three questions (they take turns, one per day), and
   below them a message about why answering matters. The Admin edits both in
-  **Settings → What residents see above their meals**.
+  **Settings → Resident messages**.
 
 ### Roles
 
 | Role | Can do |
 |---|---|
-| Admin | Everything the Warden can, plus managing staff and the menus. |
-| Warden | Approve or reject new sign-ups; see the headcount and every resident's responses; mark residents as moved out; reset a resident's forgotten password. |
-| Resident | Sign up (name and room once), sign in, see their approval status; once approved, choose meals before the cutoff, see their own history, change their password. |
+| Admin | Everything the Warden can, plus staff, menus, reports and settings (meal times, deadline, reminders, messages). |
+| Warden | Approve or reject new sign-ups; see the headcount and every resident's responses; edit a resident's name or room; mark residents as moved out; reset a resident's forgotten password. |
+| Resident | Sign up (name and room once), sign in, see their approval status; once approved, choose meals before the cutoff, turn on phone reminders, see their own history, change their password. |
 
 ### First-time setup (one time only)
 
@@ -117,8 +149,8 @@ You do the clicks; Claude does the technical parts.
 
 The live app uses its own **production** database, separate from the test
 one. Vercel hosts the website and, on every deploy, `scripts/vercel-build.mjs`
-prepares the production database automatically (login keys, latest backend
-code, the PG record). Steps (one time):
+prepares the production database automatically (login keys, phone reminder
+keys, latest backend code, the PG record). Steps (one time):
 
 1. **Convex:** <https://dashboard.convex.dev> → project **mealsync** → switch
    to **Production** (top of the page) → **Settings** → **URL & Deploy Key**
@@ -193,11 +225,17 @@ convex/
   users.ts             me, completeProfile (fallback), changePassword
   access.ts            permission checks used by actions (internal)
   meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
-  crons.ts             daily job creating the next 7 days of meal services
+  crons.ts             daily jobs (next 7 days of meals, ending stays) and the
+                       5-minute reminder check
+  notifications.ts     phone reminders: subscribe, unsubscribe, sendDueReminders
+  push.ts              sends reminders (Web Push, Node runtime, internal)
+  reports.ts           summary, exportCsv (Admin)
+  settings.ts          PG names, meal times & deadline, reminders, messages (Admin)
   dashboard.ts         day (headcount per meal), responses (each resident's choices)
   menus.ts             get, save, setThisWeek (Admin)
   residents.ts         listPending, pendingCount, approve, reject, list,
-                       moveOut, cancelMoveOut, resetPassword, endStays (daily)
+                       updateDetails, moveOut, cancelMoveOut, resetPassword,
+                       endStays (daily)
   staff.ts             list, grantRole, revokeRole (Admin)
   setup.ts             createProperty, makeFirstAdmin (internal, one-time)
   seed.ts              development-only test data (internal, env-guarded)
@@ -210,7 +248,8 @@ src/
   app/                 pages: /signin /onboarding (fallback) /pending /home /upcoming
                        /profile /change-password /design
                        /staff (dashboard) /staff/responses /staff/residents
-                       /staff/signups /staff/team /staff/menu
+                       /staff/signups /staff/team /staff/menu /staff/reports
+                       /staff/settings
   components/ui/       design-system components
   proxy.ts             redirects signed-out visitors to /signin
 e2e/                   Playwright tests
@@ -219,7 +258,9 @@ e2e/                   Playwright tests
 ### Environment variables
 
 See [.env.example](.env.example). On the **Convex deployment** set
-`SITE_URL`, `JWT_PRIVATE_KEY` and `JWKS` (for login), and on development
+`SITE_URL`, `JWT_PRIVATE_KEY` and `JWKS` (for login), `VAPID_PUBLIC_KEY` and
+`VAPID_PRIVATE_KEY` (for phone reminders; the Vercel build creates both if
+missing, or run `npx web-push generate-vapid-keys`), and on development
 deployments only, `MEALSYNC_ALLOW_DEV_SEED=true` and `DEV_SEED_PASSWORD`.
 
 ### Commands

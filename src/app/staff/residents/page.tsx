@@ -2,7 +2,7 @@
 
 import { useAction, useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Copy, DoorOpen, KeyRound, LogOut, Undo2, UserRoundCheck } from "lucide-react";
+import { Copy, DoorOpen, KeyRound, LogOut, Pencil, Undo2, UserRoundCheck } from "lucide-react";
 import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
@@ -55,7 +55,7 @@ function Residents() {
     <>
       <PageHeader
         title="Residents"
-        description="Approved residents. Mark someone as moved out so they stop being counted, or reset a forgotten password."
+        description="Approved residents. Correct a name or room, mark someone as moved out so they stop being counted, or reset a forgotten password."
       />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div role="tablist" aria-label="Which residents" className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1 sm:w-80">
@@ -135,12 +135,82 @@ function ResidentRow({ row, today }: { row: Row; today: string }) {
         </span>
       </div>
       {row.status === "active" ? (
-        <div className="grid grid-cols-2 gap-2 sm:flex">
+        <div className="grid grid-cols-2 gap-2 sm:flex [&>*:nth-child(3)]:col-span-2">
+          <EditDetailsDialog row={row} />
           {leaving ? <UndoMoveOutDialog row={row} /> : <MoveOutDialog row={row} today={today} />}
           {row.canResetPassword ? <ResetPasswordDialog row={row} /> : null}
         </div>
       ) : null}
     </li>
+  );
+}
+
+function EditDetailsDialog({ row }: { row: Row }) {
+  const updateDetails = useMutation(api.residents.updateDetails);
+  const [open, setOpen] = useState(false);
+  const [displayName, setDisplayName] = useState(row.displayName);
+  const [roomNumber, setRoomNumber] = useState(row.roomNumber);
+  const [busy, setBusy] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const changed = displayName.trim() !== row.displayName || roomNumber.trim() !== row.roomNumber;
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) {
+          setDisplayName(row.displayName);
+          setRoomNumber(row.roomNumber);
+          setServerError(null);
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="secondary" aria-label={`Edit ${row.displayName}'s name or room`}>
+          <Icon icon={Pencil} />
+          Edit
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        title="Edit name or room"
+        description="For a typo or a room change. Past days keep the name and room they were saved under."
+      >
+        <form
+          noValidate
+          className="flex flex-col gap-4"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            setServerError(null);
+            try {
+              await updateDetails({ residentId: row.residentId, displayName, roomNumber });
+              toast.success("Saved.");
+              setOpen(false);
+            } catch (error) {
+              setServerError(friendlyError(error));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {serverError ? <Banner tone="danger">{serverError}</Banner> : null}
+          <Field id={`name-${row.residentId}`} label="Full name">
+            {(p) => <Input {...p} autoComplete="off" maxLength={80} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />}
+          </Field>
+          <Field id={`room-${row.residentId}`} label="Room">
+            {(p) => <Input {...p} autoComplete="off" maxLength={20} value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} />}
+          </Field>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary">Cancel</Button>
+            </DialogClose>
+            <Button type="submit" loading={busy} disabled={!changed}>
+              Save
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

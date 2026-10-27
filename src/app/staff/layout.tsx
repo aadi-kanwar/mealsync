@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { AppPrompts } from "@/components/app/app-prompts";
 import { Brand } from "@/components/app/brand";
 import { SignOutButton, useMe } from "@/components/app/session";
 import { visibleNav } from "@/components/nav/nav-items";
@@ -57,6 +58,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         </main>
       </div>
       <BottomNav items={items.filter((item) => item.mobile !== false)} />
+      <AppPrompts resident={false} />
     </div>
   );
 }

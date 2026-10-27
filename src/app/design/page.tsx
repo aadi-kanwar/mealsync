@@ -28,12 +28,12 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { toast } from "@/components/ui/toaster";
 import { YesNoToggle, type YesNo } from "@/components/ui/yes-no-toggle";
 
-/** Internal reference: every token and component, in every state. Staff-only (open in local development). */
+/** Internal reference: every token and component, in every state. Admin only (open in local development). */
 export default function DesignPage() {
   if (process.env.NODE_ENV === "development") return <DesignSystem />;
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <RequireStaff roles={["warden"]}>
+      <RequireStaff roles={[]}>
         <DesignSystem />
       </RequireStaff>
     </div>

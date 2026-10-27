@@ -53,6 +53,10 @@ export default defineSchema({
     // Absent until the Admin edits them; the app then uses its defaults.
     dailyQuestions: v.optional(v.array(v.string())),
     wasteMessage: v.optional(v.string()),
+    // Phone reminders to residents who haven't answered: on/off and the
+    // property-local times ("HH:mm") they go out. Absent: defaults apply.
+    remindersEnabled: v.optional(v.boolean()),
+    reminderTimes: v.optional(v.array(v.string())),
   })
     .index("by_status", ["status"])
     .index("by_org_slug", ["organizationId", "slug"]),
@@ -212,6 +216,30 @@ export default defineSchema({
   })
     .index("by_resident", ["residentId"])
     .index("by_property_status", ["propertyId", "status"]),
+
+  // A phone or browser that agreed to receive reminders (Web Push). One row
+  // per device; removed when the push service says it's gone.
+  pushSubscriptions: defineTable({
+    organizationId: v.id("organizations"),
+    propertyId: v.id("properties"),
+    userId: v.id("users"),
+    endpoint: v.string(), // unique
+    p256dh: v.string(),
+    auth: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_endpoint", ["endpoint"])
+    .index("by_property", ["propertyId"])
+    .index("by_user", ["userId"]),
+
+  // Which reminder went out on which day, so each is sent only once.
+  reminderRuns: defineTable({
+    propertyId: v.id("properties"),
+    date: v.string(), // property-local YYYY-MM-DD
+    time: v.string(), // the reminder time "HH:mm"
+    sentAt: v.number(),
+    recipients: v.number(),
+  }).index("by_property_date_time", ["propertyId", "date", "time"]),
 
   // Replaces the master prompt's `otpRateLimits`: login is phone + password,
   // so we limit failed sign-in attempts per phone number (whether or not the

@@ -8,6 +8,11 @@ export function localDateString(nowMs: number, timezone: string): string {
   return formatInTimeZone(new Date(nowMs), timezone, "yyyy-MM-dd");
 }
 
+/** "HH:mm", 24-hour clock. */
+export function isClock(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
 export function isValidTimezone(timezone: string): boolean {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: timezone });

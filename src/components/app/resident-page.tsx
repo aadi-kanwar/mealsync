@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/skeleton";
 import { friendlyError } from "@/lib/errors";
 import { todayIn } from "@/lib/format";
+import { AppPrompts } from "./app-prompts";
 import { ResidentShell } from "./resident-shell";
 import { destinationFor, useMe, type Me } from "./session";
 
@@ -88,6 +89,7 @@ export function ResidentPage({ children }: { children: (ctx: ResidentContext) =>
         </Banner>
       ) : null}
       {children({ me, timezone, now, today: todayIn(timezone, now) })}
+      <AppPrompts resident />
     </ResidentShell>
   );
 }

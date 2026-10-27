@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, newContext, test, type Page } from "./fixtures";
 import { formatInTimeZone } from "date-fns-tz";
 
 /**
@@ -24,7 +24,7 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   const weekdays = [0, 1].map((d) => formatInTimeZone(new Date(Date.now() + d * 86_400_000), "Asia/Kolkata", "EEEE"));
   const dish = `Test thali ${Date.now() % 100000}`;
 
-  const adminContext = await browser.newContext();
+  const adminContext = await newContext(browser);
   const admin = await adminContext.newPage();
   await signIn(admin, ADMIN_PHONE);
   await expect(admin).toHaveURL(/\/staff$/);
@@ -42,7 +42,7 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   await expect(admin.getByText("Next week: Menu B.", { exact: false })).toBeVisible();
   await adminContext.close();
 
-  const context = await browser.newContext();
+  const context = await newContext(browser);
   const resident = await context.newPage();
   await signIn(resident, RESIDENT_PHONE);
   await expect(resident.getByRole("heading", { name: /(Today|Tomorrow)/ })).toBeVisible();

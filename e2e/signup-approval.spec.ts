@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, newContext, test, type Page } from "./fixtures";
 import { formatInTimeZone } from "date-fns-tz";
 
 /**
@@ -28,7 +28,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   const name = `E2E Person ${phone.slice(-4)}`;
   const password = "e2e-test-pass";
 
-  const residentContext = await browser.newContext();
+  const residentContext = await newContext(browser);
   const resident = await residentContext.newPage();
   await resident.goto("/signin");
   await resident.getByRole("tab", { name: "Create account" }).click();
@@ -54,7 +54,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await expect(resident.getByText("This area is for PG staff only.")).toBeVisible();
   await resident.goto("/pending");
 
-  const wardenContext = await browser.newContext();
+  const wardenContext = await newContext(browser);
   const warden = await wardenContext.newPage();
   await signIn(warden, WARDEN_PHONE, seedPassword!);
   await expect(warden).toHaveURL(/\/staff$/);
