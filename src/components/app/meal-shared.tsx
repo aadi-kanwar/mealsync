@@ -43,7 +43,7 @@ export function dayLabel(date: string, today: string): string {
 export function DayHeading({ date, today }: { date: string; today: string }) {
   const label = dayLabel(date, today);
   return (
-    <h2 id={`day-${date}`} className="text-lg font-semibold tracking-tight">
+    <h2 id={`day-${date}`} className="font-serif text-2xl tracking-tight">
       {label}
       {label !== formatDay(date) ? (
         <span className="font-normal text-foreground-secondary"> · {formatDay(date)}</span>

@@ -55,7 +55,7 @@ function Responses() {
       ) : (
         <section aria-labelledby="responses" className="flex flex-col gap-2">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <h2 id="responses" className="text-lg font-semibold tracking-tight">
+            <h2 id="responses" className="font-serif text-2xl tracking-tight">
               {data.residents.length} residents
               <span className="text-sm font-normal text-foreground-secondary">
                 {" "}

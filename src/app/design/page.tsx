@@ -104,7 +104,7 @@ function DesignSystem() {
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8">
       <PageHeader
         title="Design system"
-        description="Every MealSync colour, size and component. If a screen looks different from this page, the screen is wrong."
+        description="Every Dine colour, size and component. If a screen looks different from this page, the screen is wrong."
       />
 
       <Section title="Colour tokens">

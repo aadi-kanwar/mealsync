@@ -1,6 +1,6 @@
-# MealSync
+# Dine (by Livoza)
 
-MealSync lets PG residents say, before a cutoff time, which of tomorrow's meals
+Dine lets PG residents say, before a cutoff time, which of tomorrow's meals
 they will eat, so the PG knows the headcount for every meal.
 
 The original plan is in [MASTER_PROMPT.md](MASTER_PROMPT.md). By the owner's
@@ -76,6 +76,13 @@ cooking targets, buffers, actuals or kitchen reports.
 - Every approval, rejection and role change is written to a permanent
   **audit log** that nobody can edit or delete.
 
+- **Look:** styled after livoza.org: cream background, deep teal, serif
+  headings with italic accents, pill-shaped buttons.
+- **Question of the day and food-waste message:** above their meals,
+  residents see one of three questions (they take turns, one per day), and
+  below them a message about why answering matters. The Admin edits both in
+  **Settings → What residents see above their meals**.
+
 ### Roles
 
 | Role | Can do |
@@ -95,12 +102,12 @@ You do the clicks; Claude does the technical parts.
    phase report.
 3. Claude sets up the database, the login keys and the PG record.
 4. **Make yourself the first Admin:**
-   1. Open MealSync, tap **Create account**, and sign up with your own mobile
+   1. Open Dine, tap **Create account**, and sign up with your own mobile
       number. Enter your name and `OFFICE` as the room.
    2. In the Convex dashboard, open your project, click **Functions** in the
       left menu, choose **setup → makeFirstAdmin**, click **Run function**,
       type `{"phone": "+91XXXXXXXXXX"}` with your number, and click **Run**.
-   3. Go back to MealSync and refresh. You'll see the staff screens.
+   3. Go back to Dine and refresh. You'll see the staff screens.
 
    This step only works once. After that, Admins add other staff from the
    **Staff** screen. (Each person must create their own account first.)

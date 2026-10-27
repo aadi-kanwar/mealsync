@@ -57,12 +57,12 @@ export default function OnboardingPage() {
   return (
     <ResidentShell pgName={me.property?.name}>
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold tracking-tight">Welcome! Tell us who you are</h1>
+        <h1 className="font-serif text-2xl tracking-tight">Welcome! Tell us who you are</h1>
         <p className="text-foreground-secondary">The Warden will use this to approve your account.</p>
       </div>
       {me.property === null ? (
-        <Banner tone="warning" title="MealSync isn't set up yet">
-          The PG office hasn&apos;t finished setting up MealSync. Please try again later.
+        <Banner tone="warning" title="Dine isn't set up yet">
+          The PG office hasn&apos;t finished setting up Dine. Please try again later.
         </Banner>
       ) : (
         <Card>

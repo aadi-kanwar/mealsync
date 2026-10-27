@@ -1,34 +1,35 @@
 @import "tailwindcss";
 
 /*
- * MealSync design tokens. These are the ONLY colours, type sizes, radii,
+ * Dine design tokens (in the Livoza style). These are the ONLY colours, type sizes, radii,
  * shadows and durations available to components: Tailwind's default palette
  * and scales are switched off below, so a one-off colour won't even compile
  * into a class. See /design for a visual reference.
  */
 
 :root {
-  /* Neutral grey scale */
+  /* Warm neutrals (Livoza: cream page, white cards, warm near-black text) */
   --gray-0: #ffffff;
-  --gray-25: #fbfbfa;
-  --gray-50: #f6f6f5;
-  --gray-100: #eeeeec;
-  --gray-200: #e2e2df;
-  --gray-300: #cfcfcb;
-  --gray-400: #a3a39e;
-  --gray-500: #6b6b66; /* >= 4.5:1 on white, background and subtle: the lightest grey allowed for text */
-  --gray-600: #5b5b57;
-  --gray-700: #44443f;
-  --gray-800: #2c2c29;
-  --gray-900: #1b1b19;
+  --gray-25: #f6f2ea; /* page background: cream */
+  --gray-50: #efe9de;
+  --gray-100: #e7e0d3;
+  --gray-200: #ddd5c6;
+  --gray-300: #c9bfae;
+  --gray-400: #a39a8b;
+  --gray-500: #6b645a; /* >= 4.5:1 on white and cream: the lightest neutral allowed for text */
+  --gray-600: #57514a;
+  --gray-700: #403b35;
+  --gray-800: #2a2723;
+  --gray-900: #1c1a17;
 
-  /* The one accent: muted green (primary actions and "Yes") */
-  --green-50: #eff6f1;
-  --green-100: #d9eadf;
-  --green-200: #b5d5c0;
-  --green-600: #2f6f4c; /* 6.0:1 with white text */
-  --green-700: #265b3e;
-  --green-800: #1d4630;
+  /* The one accent: Livoza's deep teal (primary actions and "Yes") */
+  --green-50: #e8f0ee;
+  --green-100: #d3e3df;
+  --green-200: #b2cdc6;
+  --green-600: #1f4f48; /* > 9:1 with white text */
+  --green-700: #183f3a;
+  --green-800: #12302c;
+  --green-500: #5f817a; /* soft teal: large italic accent words only (>= 3:1 on cream) */
 
   /* Semantic colours (text colour on the matching subtle background is >= 4.5:1) */
   --amber-50: #fdf6e7;
@@ -76,6 +77,7 @@
   --color-primary-subtle: var(--green-50);
   --color-primary-subtle-border: var(--green-200);
   --color-primary-text: var(--green-700);
+  --color-primary-soft: var(--green-500);
   --color-ring: var(--green-600);
 
   /* Semantic */
@@ -94,8 +96,10 @@
   --color-info-subtle: var(--blue-50);
   --color-info-border: var(--blue-200);
 
-  /* Typography: one family, six sizes */
+  /* Typography: a sans for text, a serif for headings; seven sizes */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Headings: a high-contrast display serif, with italic for accent words. */
+  --font-serif: var(--font-display-serif), ui-serif, Georgia, serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   --text-xs: 0.75rem;
@@ -110,13 +114,16 @@
   --text-xl--line-height: 1.75rem;
   --text-2xl: 1.75rem;
   --text-2xl--line-height: 2.25rem;
+  /* Display: big serif headings only */
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 2.5rem;
 
   /* Spacing: Tailwind's 4px base (p-1 = 4px, p-4 = 16px). */
   --spacing: 0.25rem;
 
   /* Radii: two */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
   --radius-full: 9999px; /* only for small round indicators */
 
   /* Shadows: used rarely */

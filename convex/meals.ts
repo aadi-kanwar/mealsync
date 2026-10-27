@@ -5,6 +5,7 @@ import { appError } from "./lib/errors";
 import { internalMutation, residentMutation, residentQuery, staffMutation } from "./lib/functions";
 import { isoDateSchema } from "./lib/inputRules";
 import { loadMenuLookup } from "./lib/menus";
+import { questionFor, residentMessages } from "./lib/messages";
 import {
   approvedLeavesOf,
   ensureServices,
@@ -82,6 +83,7 @@ export const myDays = residentQuery({
     const { property, resident, profile } = ctx.resident;
     const leaves = await approvedLeavesOf(ctx, resident._id);
     const menuFor = await loadMenuLookup(ctx, property);
+    const { questions, wasteMessage } = residentMessages(property);
 
     const days = [];
     for (let i = 0; i < args.days; i += 1) {
@@ -126,13 +128,14 @@ export const myDays = residentQuery({
           };
         }),
       );
-      days.push({ date, ineligible: ineligibilityOn(resident, leaves, date), meals });
+      days.push({ date, ineligible: ineligibilityOn(resident, leaves, date), question: questionFor(date, questions), meals });
     }
     return {
       property: {
         name: property.name,
         timezone: property.timezone,
         bannerMinutesBeforeCutoff: property.reminderSettings.bannerMinutesBeforeCutoff,
+        wasteMessage,
       },
       resident: { displayName: profile.displayName, roomNumber: resident.roomNumber },
       days,

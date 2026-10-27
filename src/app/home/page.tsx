@@ -1,11 +1,12 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { AlarmClock, Clock } from "lucide-react";
+import { AlarmClock, Clock, Leaf } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
 import { AnswerProgress, answeredCount, DayEditor, SaveBar, useMealDrafts } from "@/components/app/meal-editor";
 import { isOpen, type MyDays } from "@/components/app/meal-shared";
+import { Eyebrow } from "@/components/app/brand";
 import { ResidentPage, type ResidentContext } from "@/components/app/resident-page";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -32,11 +33,9 @@ function Tomorrow(ctx: ResidentContext) {
         <p className="text-sm text-foreground-secondary">
           Hello, {ctx.me.profile?.displayName} · Room {ctx.me.resident?.roomNumber}
         </p>
-        <h1 className="flex flex-col">
-          <span className="text-sm font-medium tracking-wide text-primary-text uppercase">
-            {todayOpen ? "Today" : "Tomorrow"}
-          </span>
-          <span className="text-2xl font-semibold tracking-tight">{formatDay(shown, "EEEE d MMMM")}</span>
+        <h1 className="flex flex-col gap-1">
+          <Eyebrow>{todayOpen ? "Today" : "Tomorrow"}</Eyebrow>
+          <span className="font-serif text-3xl tracking-tight">{formatDay(shown, "EEEE d MMMM")}</span>
         </h1>
       </header>
       {data === undefined ? (
@@ -64,6 +63,7 @@ function DayMeals({ data, now, today, timezone }: ResidentContext & { data: MyDa
 
   return (
     <>
+      <p className="font-serif text-2xl text-primary-text italic">{day.question}</p>
       {cutoff !== null ? (
         <Card
           role={urgent ? "alert" : undefined}
@@ -85,6 +85,10 @@ function DayMeals({ data, now, today, timezone }: ResidentContext & { data: MyDa
         </Card>
       ) : null}
       <DayEditor day={day} drafts={drafts} now={now} today={today} timezone={timezone} />
+      <aside className="flex gap-3 rounded-md border border-primary-subtle-border bg-primary-subtle p-4 text-sm text-primary-text">
+        <Icon icon={Leaf} className="mt-0.5" />
+        <p className="whitespace-pre-line">{data.property.wasteMessage}</p>
+      </aside>
       <SaveBar drafts={drafts} today={today} timezone={timezone} />
     </>
   );

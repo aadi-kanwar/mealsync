@@ -131,7 +131,7 @@ function GrantRoleForm() {
           <div className="flex flex-col gap-1">
             <h2 className="font-medium">Add a staff member</h2>
             <p className="text-sm text-foreground-secondary">
-              They must first create an account in MealSync with their phone number.
+              They must first create an account in Dine with their phone number.
             </p>
           </div>
           {serverError ? <Banner tone="danger">{serverError}</Banner> : null}

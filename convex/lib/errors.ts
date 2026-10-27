@@ -31,7 +31,7 @@ export const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   ACCOUNT_DISABLED: "This account has been switched off. Please contact the PG office.",
   FORBIDDEN: "You don't have permission to do that.",
   RESIDENT_NOT_ACTIVE: "Your account is waiting for approval by the Warden.",
-  NOT_SET_UP: "MealSync hasn't been set up for this PG yet. Please contact the PG office.",
+  NOT_SET_UP: "Dine hasn't been set up for this PG yet. Please contact the PG office.",
   NOT_FOUND: "We couldn't find that. It may have been removed.",
   INVALID_INPUT: "Some details aren't valid. Please check and try again.",
   CONFLICT: "That has already been done.",

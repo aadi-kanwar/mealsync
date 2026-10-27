@@ -71,7 +71,7 @@ export default function PendingPage() {
           <span className="flex size-10 items-center justify-center rounded-full bg-subtle text-foreground-secondary">
             <Icon icon={content.icon} />
           </span>
-          <h1 className="text-xl font-semibold tracking-tight">{content.title}</h1>
+          <h1 className="font-serif text-2xl tracking-tight">{content.title}</h1>
           <p className="text-foreground-secondary">{content.body}</p>
         </CardBody>
       </Card>

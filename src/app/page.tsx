@@ -4,6 +4,7 @@ import { ArrowRight, CalendarCheck, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Brand, Eyebrow } from "@/components/app/brand";
 import { destinationFor, useMe } from "@/components/app/session";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,7 +21,7 @@ export default function Home() {
   if (me === null) return <Landing />;
   return (
     <main className="flex min-h-dvh items-center justify-center text-foreground-secondary">
-      <Spinner label="Loading MealSync" />
+      <Spinner label="Loading Dine" />
     </main>
   );
 }
@@ -34,9 +35,12 @@ const POINTS = [
 function Landing() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-8 px-4 py-10">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">MealSync</h1>
-        <p className="text-lg text-foreground-secondary">Know how many will eat, before you cook.</p>
+      <Brand size="lg" />
+      <div className="flex flex-col gap-3">
+        <Eyebrow>Meals at your PG</Eyebrow>
+        <h1 className="font-serif text-3xl tracking-tight">
+          Know how many will eat, <em className="text-primary-soft">before you cook.</em>
+        </h1>
       </div>
       <ul className="flex flex-col gap-3">
         {POINTS.map((point) => (
@@ -48,6 +52,13 @@ function Landing() {
           </li>
         ))}
       </ul>
+      <section className="flex flex-col gap-2 rounded-md bg-primary p-5 text-primary-foreground">
+        <p className="font-serif text-2xl italic">Food cooked today can&apos;t be served tomorrow.</p>
+        <p className="text-sm opacity-90">
+          So every answer counts. Tell us which meals you&apos;ll eat, and we cook just enough. No one goes hungry,
+          and nothing good ends up in the bin.
+        </p>
+      </section>
       <div className="flex flex-col gap-3">
         <Entry
           href="/signin"

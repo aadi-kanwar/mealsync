@@ -13,6 +13,7 @@ import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { displayNameSchema, PASSWORD_MIN_LENGTH, passwordProblem, roomNumberSchema } from "@convex/lib/inputRules";
+import { Brand } from "@/components/app/brand";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -107,11 +108,11 @@ function SignIn() {
   const [mode, setMode] = useState<Mode>("signIn");
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 px-4 py-10">
-      <Link href="/" className="-my-2 self-start py-2 text-sm text-foreground-secondary hover:text-foreground">
-        ← MealSync home
+      <Link href="/" aria-label="Dine home" className="self-start">
+        <Brand size="lg" />
       </Link>
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{admin ? "Admin sign in" : "MealSync"}</h1>
+        <h1 className="font-serif text-3xl tracking-tight">{admin ? "Admin sign in" : "Welcome to Dine"}</h1>
         <p className="text-foreground-secondary">
           {admin ? "For PG owners and managers." : "Tell the PG which meals you'll eat."}
         </p>
@@ -256,7 +257,7 @@ function AuthForm({ mode, admin = false }: { mode: Mode; admin?: boolean }) {
           </Button>
           <p className="text-sm text-foreground-secondary">
             {admin
-              ? "Admin accounts are set up for you; there's no sign-up here. Forgot your password? Contact MealSync support."
+              ? "Admin accounts are set up for you; there's no sign-up here. Forgot your password? Ask another Admin of your PG to help."
               : mode === "signIn"
               ? "Forgot your password? Contact the PG office."
               : "After you sign up, the Warden checks your details before you can choose meals."}

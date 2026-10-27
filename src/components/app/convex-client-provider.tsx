@@ -15,7 +15,7 @@ export function ConvexClientProvider({ children }: { children: React.ReactNode }
   if (convex === null) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center p-4">
-        <Banner tone="danger" title="MealSync isn't connected to its database">
+        <Banner tone="danger" title="Dine isn't connected to its database">
           The NEXT_PUBLIC_CONVEX_URL setting is missing. See README.md, “Connect Convex”.
         </Banner>
       </main>

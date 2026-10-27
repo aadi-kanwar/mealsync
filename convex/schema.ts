@@ -16,7 +16,7 @@ import {
 } from "./lib/validators";
 
 /**
- * MealSync data model.
+ * Dine data model.
  *
  * Convex has no unique constraints. Every "one per X" rule written below is
  * enforced inside the mutation that inserts the row (look up by index first,
@@ -48,6 +48,11 @@ export default defineSchema({
     // Two weekly menus alternate: the week starting on this Monday (and every
     // second week from it) uses Menu A; the weeks in between use Menu B.
     menuAWeekStart: v.optional(v.string()),
+    // Shown to residents above their meals: the question of the day (the
+    // list takes turns, one per day) and the message about food waste.
+    // Absent until the Admin edits them; the app then uses its defaults.
+    dailyQuestions: v.optional(v.array(v.string())),
+    wasteMessage: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_org_slug", ["organizationId", "slug"]),

@@ -63,7 +63,7 @@ function History({ today, me }: ResidentContext) {
   return (
     <section aria-labelledby="history" className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="history" className="text-lg font-semibold tracking-tight">
+        <h2 id="history" className="font-serif text-2xl tracking-tight">
           History
         </h2>
         <p className="text-xs text-foreground-muted">B L S D = Breakfast, Lunch, Snacks, Dinner</p>

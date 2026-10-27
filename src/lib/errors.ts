@@ -2,7 +2,7 @@ import { ConvexError } from "convex/values";
 import { DEFAULT_MESSAGES, type AppErrorCode, type AppErrorData } from "@convex/lib/errors";
 
 const OFFLINE_MESSAGE =
-  "Couldn't reach MealSync. Check your internet connection and try again.";
+  "Couldn't reach Dine. Check your internet connection and try again.";
 
 /**
  * Pulls the app's { code, message } out of any error. Errors from login pass

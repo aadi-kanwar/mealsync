@@ -69,7 +69,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
 
   // The resident's open "waiting" screen moves on by itself.
   await expect(resident.getByText(`Hello, ${name} · Room E2E-2`)).toBeVisible({ timeout: 15_000 });
-  await expect(resident.getByRole("heading", { name: /^(Today|Tomorrow)/ })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: /(Today|Tomorrow)/ })).toBeVisible();
 
   // The day after tomorrow is always open (its cutoff is tomorrow evening),
   // whatever time of day the test runs.
@@ -167,7 +167,7 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await resident.getByLabel("New password", { exact: true }).fill("e2e-new-pass");
   await resident.getByLabel("Type the new password again").fill("e2e-new-pass");
   await resident.getByRole("button", { name: "Save new password" }).click();
-  await expect(resident.getByRole("heading", { name: /^(Today|Tomorrow)/ })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: /(Today|Tomorrow)/ })).toBeVisible();
   await expect(person.getByText("Temporary password")).toHaveCount(0);
 
   await residentContext.close();

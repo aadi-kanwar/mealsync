@@ -87,7 +87,7 @@ function ChangePasswordForm({ forced, phone }: { forced: boolean; phone: string 
           <Icon icon={KeyRound} />
         </span>
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="font-serif text-2xl tracking-tight">
             {forced ? "Choose a new password" : "Change password"}
           </h1>
           <p className="text-foreground-secondary">
