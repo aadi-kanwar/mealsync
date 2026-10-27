@@ -24,14 +24,18 @@ async function signIn(page: Page, phone: string) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
-const install = (page: Page) => page.getByRole("dialog", { name: "Add Dine to your home screen" });
+const install = (page: Page) => page.getByRole("dialog", { name: "Add Dine as an app" });
 const reminders = (page: Page) => page.getByRole("dialog", { name: "Turn on meal reminders" });
 
 test("on a phone: add to home screen first, then reminders; back on every visit", async ({ page, isMobile }) => {
   test.skip(!isMobile, "Phone only.");
   await signIn(page, RESIDENT_PHONE);
   await expect(install(page)).toBeVisible();
-  await expect(install(page).getByText("Install app")).toBeVisible();
+  // Android steps first on an Android phone; iPhone steps one tap away.
+  await expect(install(page).getByRole("tab", { name: "Android" })).toHaveAttribute("aria-selected", "true");
+  await expect(install(page).getByRole("list", { name: "On Android" })).toContainText("Add to Home screen");
+  await install(page).getByRole("tab", { name: "iPhone" }).click();
+  await expect(install(page).getByRole("list", { name: "On iPhone" })).toContainText("Add to Home Screen");
   await install(page).getByRole("button", { name: "Not now" }).click();
   await expect(install(page)).toHaveCount(0);
   await expect(reminders(page)).toBeVisible();

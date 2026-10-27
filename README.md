@@ -49,8 +49,9 @@ cooking targets, buffers, actuals or kitchen reports.
     times, the deadline (any time, on the day or the day before) and how
     long before the deadline residents' screens turn amber.
 - **Add to home screen:** after signing in, everyone gets a pop-up asking to
-  add Dine to their home screen / app drawer (with the steps for their
-  phone, or a one-tap **Add to home screen** in Chrome). It comes back on
+  add Dine as an app on their home screen / app drawer, with step-by-step
+  instructions for both **Android** and **iPhone** (their own phone shown
+  first), plus a one-tap **Add it for me** where Chrome offers it. It comes back on
   every visit until Dine is opened from the icon. **Not now** hides it
   until the next visit.
 - **Phone reminders:** browsers only allow notifications after the person

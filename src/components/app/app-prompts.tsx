@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 import { usePhoneReminders } from "./reminders";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
@@ -85,7 +86,7 @@ function installState(): InstallState {
 
 /**
  * Pop-ups shown after sign-in, one at a time:
- * 1. "Add Dine to your home screen", on every visit until it's opened from
+ * 1. "Add Dine as an app" (steps for Android and iPhone), on every visit until it's opened from
  *    the home screen icon (or installed through the browser's own dialog).
  * 2. Residents only: "Turn on meal reminders", on every visit until they're
  *    on (or blocked). Where notifications are already allowed (e.g. signing
@@ -117,33 +118,69 @@ export function AppPrompts({ resident }: { resident: boolean }) {
 
 function InstallDialog({ platform, canPrompt, onLater }: { platform: Platform; canPrompt: boolean; onLater: () => void }) {
   const [busy, setBusy] = useState(false);
+  // Both sets of steps are offered; the visitor's own phone is shown first.
+  const [phone, setPhone] = useState<"android" | "ios">(platform === "ios" ? "ios" : "android");
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onLater())}>
       <DialogContent
-        title="Add Dine to your home screen"
-        description="Open Dine in one tap, like an app, and get a reminder before the meal deadline."
+        title="Add Dine as an app"
+        description="Put Dine on your home screen to open it in one tap, like any other app, and get a reminder before the meal deadline."
       >
-        {canPrompt ? null : platform === "ios" ? (
-          <ol className="flex flex-col gap-3 text-sm">
+        <div role="tablist" aria-label="Your phone" className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
+          {(
+            [
+              ["android", "Android"],
+              ["ios", "iPhone"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={phone === value}
+              onClick={() => setPhone(value)}
+              className={cn(
+                "min-h-11 rounded-sm text-sm font-medium transition-colors",
+                phone === value ? "bg-surface text-foreground shadow-sm" : "text-foreground-secondary hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {phone === "ios" ? (
+          <ol className="flex flex-col gap-3 text-sm" aria-label="On iPhone">
             <Step n={1}>
-              Tap <Icon icon={Share} className="inline size-4 align-text-bottom" /> <b>Share</b> at the bottom of Safari
-              (or at the top on iPad).
+              Open Dine in <b>Safari</b>.
             </Step>
             <Step n={2}>
-              Scroll down and tap <Icon icon={SquarePlus} className="inline size-4 align-text-bottom" />{" "}
-              <b>Add to Home Screen</b>, then <b>Add</b>.
+              Tap <Icon icon={Share} className="inline size-4 align-text-bottom" /> <b>Share</b> at the bottom of the
+              screen (at the top on iPad).
             </Step>
-            <Step n={3}>Open Dine from the new icon on your home screen.</Step>
+            <Step n={3}>
+              Scroll down and tap <Icon icon={SquarePlus} className="inline size-4 align-text-bottom" />{" "}
+              <b>Add to Home Screen</b>.
+            </Step>
+            <Step n={4}>
+              Keep the name <b>Dine</b> and tap <b>Add</b> (top right).
+            </Step>
+            <Step n={5}>Close Safari and open Dine from the new icon on your home screen.</Step>
           </ol>
         ) : (
-          <ol className="flex flex-col gap-3 text-sm">
+          <ol className="flex flex-col gap-3 text-sm" aria-label="On Android">
             <Step n={1}>
-              Tap the browser menu <Icon icon={EllipsisVertical} className="inline size-4 align-text-bottom" /> (top right).
+              Open Dine in <b>Chrome</b>.
             </Step>
             <Step n={2}>
-              Tap <b>Add to Home screen</b> or <b>Install app</b>, then confirm.
+              Tap the menu <Icon icon={EllipsisVertical} className="inline size-4 align-text-bottom" /> at the top right.
             </Step>
-            <Step n={3}>Open Dine from the new icon on your home screen or app drawer.</Step>
+            <Step n={3}>
+              Tap <b>Add to Home screen</b> (or <b>Install app</b>), then <b>Install</b> or <b>Add</b>.
+            </Step>
+            <Step n={4}>Open Dine from the new icon on your home screen or in your app drawer.</Step>
+            <li className="pl-9 text-foreground-secondary">
+              Samsung Internet: tap the menu ☰ at the bottom, then <b>Add page to</b> → <b>Home screen</b>.
+            </li>
           </ol>
         )}
         <p className="text-sm text-foreground-secondary">Already added? Open Dine from its icon and this won&apos;t show again.</p>
@@ -169,7 +206,7 @@ function InstallDialog({ platform, canPrompt, onLater }: { platform: Platform; c
               }}
             >
               <Icon icon={SquarePlus} />
-              Add to home screen
+              Add it for me
             </Button>
           ) : null}
         </DialogFooter>
