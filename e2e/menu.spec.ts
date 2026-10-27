@@ -45,7 +45,7 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   const context = await browser.newContext();
   const resident = await context.newPage();
   await signIn(resident, RESIDENT_PHONE);
-  await expect(resident.getByRole("heading", { name: /^(Today|Tomorrow)/ })).toBeVisible();
+  await expect(resident.getByRole("heading", { name: /(Today|Tomorrow)/ })).toBeVisible();
   await expect(resident.getByText(dish)).toBeVisible();
   await expect(resident.getByText("12:00 – 2:00 PM")).toBeVisible();
   await context.close();

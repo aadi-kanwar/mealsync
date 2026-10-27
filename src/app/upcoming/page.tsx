@@ -86,7 +86,7 @@ function Week({ data, now, today, timezone }: ResidentContext & { data: MyDays }
         className="flex flex-col gap-3"
       >
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold tracking-tight">
+          <h2 className="font-serif text-2xl tracking-tight">
             {dayLabel(selected.date, today) === formatDay(selected.date)
               ? formatDay(selected.date, "EEEE d MMMM")
               : `${dayLabel(selected.date, today)} · ${formatDay(selected.date, "EEEE d MMMM")}`}

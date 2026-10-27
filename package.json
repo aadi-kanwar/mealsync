@@ -19,6 +19,7 @@
   "dependencies": {
     "@auth/core": "^0.41.3",
     "@convex-dev/auth": "^0.0.96",
+    "@fontsource/instrument-serif": "^5.3.0",
     "@hookform/resolvers": "^5.9.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

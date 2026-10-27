@@ -7,7 +7,7 @@ export default function NotFound() {
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-4">
       <EmptyState
         title="Page not found"
-        description="That link doesn't lead anywhere in MealSync."
+        description="That link doesn't lead anywhere in Dine."
         action={
           <Button asChild variant="secondary">
             <Link href="/">Go to my home screen</Link>

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Brand } from "@/components/app/brand";
 import { SignOutButton, useMe } from "@/components/app/session";
 import { visibleNav } from "@/components/nav/nav-items";
 import { BottomNav, StaffSidebar } from "@/components/nav/staff-nav";
@@ -40,11 +41,10 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 border-b border-border bg-surface print:hidden">
         <div className="flex h-14 items-center justify-between gap-3 px-4">
-          <div className="flex min-w-0 flex-col leading-tight">
-            <span className="font-semibold">MealSync</span>
-            <span className="truncate text-xs text-foreground-secondary">
-              {me.property?.name} · {me.profile?.displayName} (
-              {me.staffRoles.map((r) => ROLE_LABEL[r]).join(", ")})
+          <div className="flex min-w-0 items-center gap-3">
+            <Brand />
+            <span className="truncate border-l border-border pl-3 text-xs text-foreground-secondary">
+              {me.property?.name} · {me.profile?.displayName} ({me.staffRoles.map((r) => ROLE_LABEL[r]).join(", ")})
             </span>
           </div>
           <SignOutButton />

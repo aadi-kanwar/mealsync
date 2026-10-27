@@ -21,6 +21,7 @@ import type * as lib_headcount from "../lib/headcount.js";
 import type * as lib_inputRules from "../lib/inputRules.js";
 import type * as lib_meals from "../lib/meals.js";
 import type * as lib_menus from "../lib/menus.js";
+import type * as lib_messages from "../lib/messages.js";
 import type * as lib_property from "../lib/property.js";
 import type * as lib_staffRoles from "../lib/staffRoles.js";
 import type * as lib_time from "../lib/time.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   "lib/inputRules": typeof lib_inputRules;
   "lib/meals": typeof lib_meals;
   "lib/menus": typeof lib_menus;
+  "lib/messages": typeof lib_messages;
   "lib/property": typeof lib_property;
   "lib/staffRoles": typeof lib_staffRoles;
   "lib/time": typeof lib_time;

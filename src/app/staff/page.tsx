@@ -91,7 +91,7 @@ function Dashboard() {
         <EmptyState
           icon={CalendarX}
           title="No meals on this day"
-          description="Meals are prepared up to 7 days ahead. Days before the PG started using MealSync have none."
+          description="Meals are prepared up to 7 days ahead. Days before the PG started using Dine have none."
         />
       ) : (
         day.meals.map((meal) => (
