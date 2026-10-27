@@ -1,13 +1,12 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, CircleCheck, Clock, Leaf } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Brand, Eyebrow } from "@/components/app/brand";
 import { destinationFor, useMe } from "@/components/app/session";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -26,32 +25,36 @@ export default function Home() {
   );
 }
 
-const POINTS = [
-  { icon: CalendarCheck, text: "Residents say Yes or No to each of tomorrow's meals before the cutoff." },
-  { icon: Users, text: "The Warden sees an exact headcount for every meal, live." },
-  { icon: ShieldCheck, text: "Less food cooked for no one, less waste." },
+const STEPS = [
+  { icon: Clock, text: "Open Dine before 6 AM on the day." },
+  { icon: CircleCheck, text: "Tap Yes or No for each meal. It takes a few seconds." },
+  { icon: Leaf, text: "The kitchen cooks for the people who'll actually eat." },
 ];
 
 function Landing() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-8 px-4 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-7 px-4 py-8">
       <Brand size="lg" />
       <div className="flex flex-col gap-3">
-        <Eyebrow>Meals at your PG</Eyebrow>
+        <Eyebrow>Before you skip a meal</Eyebrow>
         <h1 className="font-serif text-3xl tracking-tight">
-          Know how many will eat, <em className="text-primary-soft">before you cook.</em>
+          Every meal you skip is still <em className="text-primary-soft">cooked for you.</em>
         </h1>
+        <p className="text-foreground-secondary">
+          Unless you tell us. Food that isn&apos;t eaten can&apos;t be served the next day, so it ends up in the bin.
+        </p>
       </div>
-      <ul className="flex flex-col gap-3">
-        {POINTS.map((point) => (
-          <li key={point.text} className="flex items-start gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary-text">
-              <Icon icon={point.icon} className="size-4" />
-            </span>
-            <span className="pt-1">{point.text}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="flex flex-col gap-2">
+        <Button asChild width="full">
+          <Link href="/signin">
+            Sign in or create account
+            <Icon icon={ArrowRight} />
+          </Link>
+        </Button>
+        <Button asChild variant="ghost" width="full">
+          <Link href="/signin?as=admin">PG admin? Sign in here</Link>
+        </Button>
+      </div>
       <section className="flex flex-col gap-2 rounded-md bg-primary p-5 text-primary-foreground">
         <p className="font-serif text-2xl italic">Food cooked today can&apos;t be served tomorrow.</p>
         <p className="text-sm opacity-90">
@@ -59,31 +62,21 @@ function Landing() {
           and nothing good ends up in the bin.
         </p>
       </section>
-      <div className="flex flex-col gap-3">
-        <Entry
-          href="/signin"
-          title="Residents and wardens"
-          text="Sign in, or create an account if you're new to the PG."
-          primary
-        />
-        <Entry href="/signin?as=admin" title="PG admins" text="Sign in to manage your PG, menus, residents and staff." />
-      </div>
+      <section aria-labelledby="how" className="flex flex-col gap-3">
+        <Eyebrow>
+          <span id="how">How it works</span>
+        </Eyebrow>
+        <ol className="flex flex-col gap-3">
+          {STEPS.map((step) => (
+            <li key={step.text} className="flex items-start gap-3">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary-text">
+                <Icon icon={step.icon} className="size-4" />
+              </span>
+              <span className="pt-1">{step.text}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
     </main>
-  );
-}
-
-function Entry({ href, title, text, primary = false }: { href: string; title: string; text: string; primary?: boolean }) {
-  return (
-    <Card className="flex items-center gap-4 p-4">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <h2 className="font-semibold">{title}</h2>
-        <p className="text-sm text-foreground-secondary">{text}</p>
-      </div>
-      <Button asChild variant={primary ? "primary" : "secondary"} size="icon" aria-label={title}>
-        <Link href={href}>
-          <Icon icon={ArrowRight} />
-        </Link>
-      </Button>
-    </Card>
   );
 }
