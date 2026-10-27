@@ -65,6 +65,8 @@ test("question of the day and waste message: defaults, Admin edits, one question
   );
 });
 
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
 test("the Admin changes meal times and the deadline; only meals still open take them", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(Date.UTC(2026, 9, 27, 15, 32)); // Tue 27 Oct, 21:02 IST
@@ -73,57 +75,92 @@ test("the Admin changes meal times and the deadline; only meals still open take 
     await createProperty(t);
     await t.mutation(internal.meals.generateUpcoming, {});
     const admin = await createStaff(t, "admin");
-    const lunchOn = (date: string) =>
+    const mealOn = (date: string, mealType: string) =>
       t.run(async (ctx) =>
-        (await ctx.db.query("mealServices").collect()).find((s) => s.serviceDate === date && s.mealType === "lunch")!,
+        (await ctx.db.query("mealServices").collect()).find((s) => s.serviceDate === date && s.mealType === mealType) ?? null,
       );
-    const todayBefore = await lunchOn("2026-10-27");
+    const todayBefore = await mealOn("2026-10-27", "lunch");
 
     const view = await admin.as.query(api.settings.get, {});
     expect(view.cutoff).toEqual({ daysBefore: 0, time: "06:00" });
-    expect(view.meals.map((m) => [m.mealType, m.serviceTime, m.endTime])).toEqual([
-      ["breakfast", "07:30", "09:30"],
-      ["lunch", "12:00", "14:00"],
-      ["snacks", "17:00", "18:00"],
-      ["dinner", "20:00", "21:30"],
+    expect(view.warnMinutes).toBe(120);
+    expect(view.meals.map((m) => [m.mealType, m.displayName, m.serviceTime, m.endTime, m.active, m.serviceDays])).toEqual([
+      ["breakfast", "Breakfast", "07:30", "09:30", true, ALL_DAYS],
+      ["lunch", "Lunch", "12:00", "14:00", true, ALL_DAYS],
+      ["snacks", "Snacks", "17:00", "18:00", true, ALL_DAYS],
+      ["dinner", "Dinner", "20:00", "21:30", true, ALL_DAYS],
     ]);
+    const meals = view.meals.map(({ mealType, displayName, serviceTime, endTime, serviceDays, active }) => ({
+      mealType,
+      displayName,
+      serviceTime,
+      endTime,
+      serviceDays,
+      active,
+    }));
+    const save = (changes: Partial<(typeof meals)[number]>[] = [], cutoff = { daysBefore: 0, time: "06:00" }, warnMinutes = 120) =>
+      admin.as.mutation(api.settings.updateMeals, {
+        meals: meals.map((m) => ({ ...m, ...changes.find((c) => c.mealType === m.mealType) })),
+        cutoff,
+        warnMinutes,
+      });
 
-    const result = await admin.as.mutation(api.settings.updateMealTimes, {
-      meals: [{ mealType: "lunch", serviceTime: "12:30", endTime: "14:30" }],
-      cutoff: { daysBefore: 1, time: "22:00" },
-    });
+    const result = await save(
+      [{ mealType: "lunch", displayName: "Lunch thali", serviceTime: "12:30", endTime: "14:30" }],
+      { daysBefore: 1, time: "22:00" },
+      60,
+    );
     expect(result.openMealsUpdated).toBeGreaterThan(0);
-    const tomorrow = await lunchOn("2026-10-28");
+    const tomorrow = (await mealOn("2026-10-28", "lunch"))!;
     expect(tomorrow).toMatchObject({ serviceTime: "12:30", endTime: "14:30", cutoffAt: Date.UTC(2026, 9, 27, 16, 30) });
+    expect(tomorrow.policySnapshot.displayName).toBe("Lunch thali");
     // Today's meals had already closed: unchanged.
-    expect(await lunchOn("2026-10-27")).toEqual(todayBefore);
-    expect((await admin.as.query(api.settings.get, {})).cutoff).toEqual({ daysBefore: 1, time: "22:00" });
+    expect(await mealOn("2026-10-27", "lunch")).toEqual(todayBefore);
+    const after = await admin.as.query(api.settings.get, {});
+    expect(after.cutoff).toEqual({ daysBefore: 1, time: "22:00" });
+    expect(after.warnMinutes).toBe(60);
     const audit = await t.run((ctx) => ctx.db.query("auditLogs").collect());
     expect(audit.at(-1)).toMatchObject({ action: "settings.meal_times_updated" });
 
     // A deadline that has already passed for tomorrow leaves tomorrow as it is.
-    await admin.as.mutation(api.settings.updateMealTimes, { meals: [], cutoff: { daysBefore: 1, time: "21:00" } });
-    expect((await lunchOn("2026-10-28")).cutoffAt).toBe(tomorrow.cutoffAt);
-    expect((await lunchOn("2026-10-29")).cutoffAt).toBe(Date.UTC(2026, 9, 28, 15, 30));
+    await save([], { daysBefore: 1, time: "21:00" });
+    expect((await mealOn("2026-10-28", "lunch"))!.cutoffAt).toBe(tomorrow.cutoffAt);
+    expect((await mealOn("2026-10-29", "lunch"))!.cutoffAt).toBe(Date.UTC(2026, 9, 28, 15, 30));
 
-    const save = (meals: { mealType: "breakfast" | "lunch"; serviceTime: string; endTime: string }[], cutoff = { daysBefore: 0, time: "06:00" }) =>
-      errorCode(admin.as.mutation(api.settings.updateMealTimes, { meals, cutoff }));
-    expect(await save([], { daysBefore: 0, time: "08:00" })).toBe("INVALID_INPUT"); // after breakfast starts
-    expect(await save([], { daysBefore: 2, time: "06:00" })).toBe("INVALID_INPUT");
-    expect(await save([{ mealType: "lunch", serviceTime: "14:00", endTime: "13:00" }])).toBe("INVALID_INPUT");
-    expect(await save([{ mealType: "lunch", serviceTime: "1 PM", endTime: "14:00" }])).toBe("INVALID_INPUT");
-    expect(
-      await save([
-        { mealType: "lunch", serviceTime: "12:00", endTime: "13:00" },
-        { mealType: "lunch", serviceTime: "12:00", endTime: "13:00" },
-      ]),
-    ).toBe("INVALID_INPUT");
-    expect(await save([{ mealType: "breakfast", serviceTime: "05:30", endTime: "07:00" }])).toBe("INVALID_INPUT");
+    // Snacks only on weekdays; Sunday 1 Nov loses them (nobody answered), Monday keeps them.
+    await save([{ mealType: "snacks", serviceDays: [1, 2, 3, 4, 5] }]);
+    expect(await mealOn("2026-11-01", "snacks")).toBeNull();
+    expect(await mealOn("2026-11-02", "snacks")).not.toBeNull();
+    // Snacks off entirely, but someone already said Yes for Thursday: kept, marked not served.
+    const resident = await createActiveResident(t);
+    const thursday = (await mealOn("2026-10-29", "snacks"))!;
+    await resident.as.mutation(api.meals.saveChoices, { choices: [{ mealServiceId: thursday._id, selection: "yes" }] });
+    await save([{ mealType: "snacks", active: false }]);
+    expect((await mealOn("2026-10-29", "snacks"))!.status).toBe("cancelled");
+    expect(await mealOn("2026-10-30", "snacks")).toBeNull();
+    // Back on every day: served again, and the missing days come back.
+    await save([{ mealType: "snacks", active: true, serviceDays: ALL_DAYS }]);
+    expect((await mealOn("2026-10-29", "snacks"))!.status).toBe("scheduled");
+    expect(await mealOn("2026-11-01", "snacks")).not.toBeNull();
+
+    const fails = async (changes: Partial<(typeof meals)[number]>[], cutoff = { daysBefore: 0, time: "06:00" }, warn = 120) =>
+      errorCode(save(changes, cutoff, warn));
+    expect(await fails([], { daysBefore: 2, time: "06:00" })).toBe("INVALID_INPUT");
+    expect(await fails([], undefined, 45)).toBe("INVALID_INPUT");
+    expect(await fails([{ mealType: "lunch", serviceTime: "14:00", endTime: "13:00" }])).toBe("INVALID_INPUT");
+    expect(await fails([{ mealType: "lunch", serviceTime: "1 PM" }])).toBe("INVALID_INPUT");
+    expect(await fails([{ mealType: "lunch", displayName: "L" }])).toBe("INVALID_INPUT");
+    expect(await fails([{ mealType: "lunch", serviceDays: [] }])).toBe("INVALID_INPUT");
+    expect(await fails([{ mealType: "lunch", serviceDays: [7] }])).toBe("INVALID_INPUT");
+    expect(await fails(meals.map((m) => ({ mealType: m.mealType, active: false })))).toBe("INVALID_INPUT");
+    // A deadline after a meal starts is allowed: it's only what residents must keep to.
+    expect(await fails([{ mealType: "breakfast", serviceTime: "05:30", endTime: "07:00" }])).toBe("NO_ERROR");
+    expect(await fails([], { daysBefore: 0, time: "08:00" })).toBe("NO_ERROR");
 
     const warden = await createStaff(t, "warden");
-    expect(await errorCode(warden.as.mutation(api.settings.updateMealTimes, { meals: [], cutoff: { daysBefore: 0, time: "06:00" } }))).toBe(
-      "FORBIDDEN",
-    );
+    expect(
+      await errorCode(warden.as.mutation(api.settings.updateMeals, { meals: [], cutoff: { daysBefore: 0, time: "06:00" }, warnMinutes: 120 })),
+    ).toBe("FORBIDDEN");
   } finally {
     vi.useRealTimers();
   }

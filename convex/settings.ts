@@ -9,6 +9,7 @@ import {
   residentMessages,
 } from "./lib/messages";
 import { MAX_REMINDER_TIMES, reminderSettings } from "./lib/reminders";
+import { ensureServices, horizonDates, slotRunsOn } from "./lib/meals";
 import { computeCutoffAt, isClock, localDateString } from "./lib/time";
 import { vMealType } from "./lib/validators";
 
@@ -30,9 +31,7 @@ export const get = staffQuery({
         .query("mealSlots")
         .withIndex("by_property", (q) => q.eq("propertyId", property._id))
         .collect()
-    )
-      .filter((s) => s.active)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+    ).sort((a, b) => a.sortOrder - b.sortOrder);
     return {
       organizationName: organization?.name ?? "",
       propertyName: property.name,
@@ -43,8 +42,11 @@ export const get = staffQuery({
         displayName: s.displayName,
         serviceTime: s.serviceTime,
         endTime: s.endTime,
+        serviceDays: [...s.serviceDays].sort(),
+        active: s.active,
       })),
       cutoff: slots[0]?.cutoffRule ?? { daysBefore: 0, time: "06:00" },
+      warnMinutes: property.reminderSettings.bannerMinutesBeforeCutoff,
       reminders: reminderSettings(property),
       // How many residents have reminders turned on (on at least one phone).
       residentsWithReminders: new Set(
@@ -119,58 +121,109 @@ export const updateResidentMessages = staffMutation({
   },
 });
 
+/** How long before the deadline residents' screens turn amber, in minutes. */
+export const WARN_MINUTES = [30, 60, 120, 180, 240, 360] as const;
+
 /**
- * Meal times and the deadline for choosing (the same for every meal: either
- * that morning or the evening before, at a set time). Admin only; audited.
- *
- * Applies to new days and to coming days that are still open for choosing.
- * Meals whose deadline has already passed are never reopened or changed.
+ * Meals (name, served or not, which days, times), the deadline to choose,
+ * and when the "deadline is close" warning shows. Admin only; audited.
+ * Coming days still open for choosing take the changes; days already
+ * closed keep what they had. A meal no longer served on an open day is
+ * removed, or marked not served if someone has already answered for it.
  */
-export const updateMealTimes = staffMutation({
+export const updateMeals = staffMutation({
   roles: [],
   args: {
-    meals: v.array(v.object({ mealType: vMealType, serviceTime: v.string(), endTime: v.string() })),
+    meals: v.array(
+      v.object({
+        mealType: vMealType,
+        displayName: v.string(),
+        serviceTime: v.string(),
+        endTime: v.string(),
+        serviceDays: v.array(v.number()),
+        active: v.boolean(),
+      }),
+    ),
     cutoff: v.object({ daysBefore: v.number(), time: v.string() }),
+    warnMinutes: v.number(),
   },
   handler: async (ctx, args) => {
     const { property, userId } = ctx.staff;
     const { daysBefore, time } = args.cutoff;
     if ((daysBefore !== 0 && daysBefore !== 1) || !isClock(time)) {
-      throw appError("INVALID_INPUT", "Choose a deadline on the day or the evening before, as a time like 06:00.");
+      throw appError("INVALID_INPUT", "Choose a deadline on the day or the day before, as a time like 06:00.");
     }
+    if (!(WARN_MINUTES as readonly number[]).includes(args.warnMinutes)) {
+      throw appError("INVALID_INPUT", "Choose when the deadline warning shows.");
+    }
+    const changes = new Map<string, (typeof args.meals)[number]>();
     for (const meal of args.meals) {
+      if (changes.has(meal.mealType)) throw appError("INVALID_INPUT", "A meal appears twice.");
+      const displayName = meal.displayName.trim().replace(/\s+/g, " ");
+      if (displayName.length < 2 || displayName.length > 30) {
+        throw appError("INVALID_INPUT", "Meal names must be 2 to 30 characters.");
+      }
       if (!isClock(meal.serviceTime) || !isClock(meal.endTime)) {
         throw appError("INVALID_INPUT", "Enter times like 07:30.");
       }
-      if (meal.endTime <= meal.serviceTime) {
-        throw appError("INVALID_INPUT", "Each meal must end after it starts.");
+      if (meal.endTime <= meal.serviceTime) throw appError("INVALID_INPUT", `${displayName} must end after it starts.`);
+      const serviceDays = [...new Set(meal.serviceDays)].sort();
+      if (serviceDays.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) throw appError("INVALID_INPUT", "Unknown day.");
+      if (meal.active && serviceDays.length === 0) {
+        throw appError("INVALID_INPUT", `Choose at least one day for ${displayName}, or turn it off.`);
       }
+      changes.set(meal.mealType, { ...meal, displayName, serviceDays });
     }
     const slots = await ctx.db
       .query("mealSlots")
       .withIndex("by_property", (q) => q.eq("propertyId", property._id))
       .collect();
-    const changes = new Map(args.meals.map((m) => [m.mealType, m]));
-    if (changes.size !== args.meals.length) throw appError("INVALID_INPUT", "A meal appears twice.");
     for (const mealType of changes.keys()) {
       if (!slots.some((s) => s.mealType === mealType)) throw appError("INVALID_INPUT", "Unknown meal.");
     }
-    const earliest = [...slots.map((s) => changes.get(s.mealType)?.serviceTime ?? s.serviceTime)].sort()[0];
-    if (daysBefore === 0 && earliest !== undefined && time > earliest) {
-      throw appError("INVALID_INPUT", `The deadline must be before the first meal starts (${earliest}).`);
-    }
-
     const rule = { daysBefore, time };
-    const before = slots.map((s) => ({ mealType: s.mealType, serviceTime: s.serviceTime, endTime: s.endTime, cutoff: s.cutoffRule }));
-    for (const slot of slots) {
+    const updatedSlots = slots.map((slot) => {
       const change = changes.get(slot.mealType);
-      await ctx.db.patch(slot._id, {
+      return {
+        ...slot,
         cutoffRule: rule,
-        ...(change ? { serviceTime: change.serviceTime, endTime: change.endTime } : {}),
+        ...(change
+          ? {
+              displayName: change.displayName,
+              serviceTime: change.serviceTime,
+              endTime: change.endTime,
+              serviceDays: change.serviceDays,
+              active: change.active,
+            }
+          : {}),
+      };
+    });
+    if (!updatedSlots.some((s) => s.active)) throw appError("INVALID_INPUT", "At least one meal must be served.");
+
+    const before = {
+      meals: slots.map(({ mealType, displayName, serviceTime, endTime, serviceDays, active }) => ({
+        mealType,
+        displayName,
+        serviceTime,
+        endTime,
+        serviceDays,
+        active,
+      })),
+      cutoff: slots[0]?.cutoffRule ?? null,
+      warnMinutes: property.reminderSettings.bannerMinutesBeforeCutoff,
+    };
+    for (const slot of updatedSlots) {
+      const { _id, _creationTime, ...fields } = slot;
+      void _creationTime;
+      await ctx.db.patch(_id, fields);
+    }
+    if (args.warnMinutes !== property.reminderSettings.bannerMinutesBeforeCutoff) {
+      await ctx.db.patch(property._id, {
+        reminderSettings: { ...property.reminderSettings, bannerMinutesBeforeCutoff: args.warnMinutes },
       });
     }
 
-    // Coming days that are still open take the new times and deadline.
+    // Coming days that are still open take the changes.
     const now = Date.now();
     const today = localDateString(now, property.timezone);
     const services = await ctx.db
@@ -181,25 +234,43 @@ export const updateMealTimes = staffMutation({
     for (const service of services) {
       const newCutoff = computeCutoffAt(service.serviceDate, rule, property.timezone);
       if (now >= service.cutoffAt || now >= newCutoff) continue;
-      const slot = slots.find((s) => s.mealType === service.mealType);
-      const change = changes.get(service.mealType);
-      const serviceTime = change?.serviceTime ?? slot?.serviceTime ?? service.serviceTime;
-      const endTime = change?.endTime ?? slot?.endTime ?? service.endTime;
-      await ctx.db.patch(service._id, {
-        serviceTime,
-        endTime,
-        cutoffAt: newCutoff,
-        policySnapshot: { ...service.policySnapshot, serviceTime, endTime, cutoffRule: rule },
-      });
+      const slot = updatedSlots.find((s) => s.mealType === service.mealType);
+      if (slot === undefined) continue;
       updated += 1;
+      if (!slotRunsOn(slot, service.serviceDate)) {
+        const answered = await ctx.db
+          .query("mealResponses")
+          .withIndex("by_service", (q) => q.eq("mealServiceId", service._id))
+          .first();
+        if (answered === null) await ctx.db.delete(service._id);
+        else if (service.status !== "cancelled") await ctx.db.patch(service._id, { status: "cancelled" });
+        continue;
+      }
+      await ctx.db.patch(service._id, {
+        serviceTime: slot.serviceTime,
+        endTime: slot.endTime,
+        cutoffAt: newCutoff,
+        // Served again after being turned off.
+        status: "scheduled",
+        policySnapshot: {
+          ...service.policySnapshot,
+          displayName: slot.displayName,
+          serviceTime: slot.serviceTime,
+          endTime: slot.endTime,
+          cutoffRule: rule,
+        },
+      });
     }
+    // Meals or days that were just turned on.
+    updated += await ensureServices(ctx, property, horizonDates(now, property.timezone), now);
+
     await writeAudit(ctx, {
       property,
       actorUserId: userId,
       action: "settings.meal_times_updated",
       entityType: "properties",
       entityId: property._id,
-      metadata: { before, after: { meals: args.meals, cutoff: rule }, openMealsUpdated: updated },
+      metadata: { before, after: { meals: args.meals, cutoff: rule, warnMinutes: args.warnMinutes }, openMealsUpdated: updated },
     });
     return { openMealsUpdated: updated };
   },

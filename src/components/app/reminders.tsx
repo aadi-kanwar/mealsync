@@ -60,11 +60,17 @@ export function usePhoneReminders() {
       .catch(() => setFailed(true));
   }, [detected]);
 
-  const turnOn = useCallback(async () => {
+  /**
+   * Turns reminders on for this device. `quiet`: only if notifications are
+   * already allowed (no permission question, no messages), e.g. after
+   * signing in again on a phone that had them on.
+   */
+  const turnOn = useCallback(async ({ quiet = false }: { quiet?: boolean } = {}) => {
     if (!key?.publicKey) {
-      toast.error("Reminders aren't set up on the server yet.");
+      if (!quiet) toast.error("Reminders aren't set up on the server yet.");
       return;
     }
+    if (quiet && Notification.permission !== "granted") return;
     setBusy(true);
     try {
       const result = await Notification.requestPermission();
@@ -77,9 +83,9 @@ export function usePhoneReminders() {
       const json = sub.toJSON();
       await subscribe({ endpoint: sub.endpoint, p256dh: json.keys?.p256dh ?? "", auth: json.keys?.auth ?? "" });
       setEndpoint(sub.endpoint);
-      toast.success("Reminders are on for this phone.");
+      if (!quiet) toast.success("Reminders are on for this phone.");
     } catch (error) {
-      toast.error(friendlyError(error));
+      if (!quiet) toast.error(friendlyError(error));
     } finally {
       setBusy(false);
     }
@@ -104,7 +110,8 @@ export function usePhoneReminders() {
   }, [unsubscribe]);
 
   const on = support === "supported" && permission === "granted" && subscribed === true;
-  return { support, permission, on, loading: support === "supported" && (!ready || (endpoint !== null && subscribed === undefined)), busy, turnOn, turnOff };
+  const loading = support === "checking" || (support === "supported" && (!ready || key === undefined || (endpoint !== null && subscribed === undefined)));
+  return { support, permission, on, loading, busy, turnOn, turnOff };
 }
 
 /** Profile card: turn phone reminders on or off for this device. */
@@ -136,27 +143,12 @@ export function PhoneRemindersCard() {
             Turn off reminders
           </Button>
         ) : (
-          <Button onClick={r.turnOn} disabled={r.busy}>
+          <Button onClick={() => r.turnOn()} disabled={r.busy}>
             <Icon icon={Bell} />
             Turn on reminders
           </Button>
         )
       ) : null}
     </Card>
-  );
-}
-
-/** Home: a one-line offer to turn reminders on, shown until they're on or refused. */
-export function PhoneRemindersNudge() {
-  const r = usePhoneReminders();
-  if (r.support !== "supported" || r.loading || r.on || r.permission !== "default") return null;
-  return (
-    <div className="flex items-center gap-3 rounded-md border border-border bg-surface px-4 py-3 text-sm">
-      <Icon icon={Bell} className="text-foreground-secondary" />
-      <p className="flex-1">Want a reminder on this phone before the deadline?</p>
-      <Button variant="secondary" onClick={r.turnOn} disabled={r.busy}>
-        Turn on
-      </Button>
-    </div>
   );
 }

@@ -26,7 +26,7 @@ type SettingsData = FunctionReturnType<typeof api.settings.get>;
 
 const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "pg", label: "PG details", icon: Building2 },
-  { id: "meals", label: "Meal times & deadline", icon: Clock },
+  { id: "meals", label: "Meals & deadline", icon: Clock },
   { id: "reminders", label: "Phone reminders", icon: Bell },
   { id: "messages", label: "Resident messages", icon: MessageSquareHeart },
 ];
@@ -86,7 +86,7 @@ function Settings() {
           ) : section.id === "pg" ? (
             <PgDetailsForm initial={data} />
           ) : section.id === "meals" ? (
-            <MealTimesForm initial={data} />
+            <MealsForm initial={data} />
           ) : section.id === "reminders" ? (
             <RemindersForm initial={data} />
           ) : (
@@ -155,63 +155,129 @@ function PgDetailsForm({ initial }: { initial: SettingsData }) {
   );
 }
 
-function MealTimesForm({ initial }: { initial: SettingsData }) {
-  const update = useMutation(api.settings.updateMealTimes);
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WARN_OPTIONS = [
+  [30, "30 minutes"],
+  [60, "1 hour"],
+  [120, "2 hours"],
+  [180, "3 hours"],
+  [240, "4 hours"],
+  [360, "6 hours"],
+] as const;
+
+type MealSetting = SettingsData["meals"][number];
+
+function MealsForm({ initial }: { initial: SettingsData }) {
+  const update = useMutation(api.settings.updateMeals);
   const [meals, setMeals] = useState(initial.meals);
   const [daysBefore, setDaysBefore] = useState(initial.cutoff.daysBefore);
   const [cutoffTime, setCutoffTime] = useState(initial.cutoff.time);
-  const changedMeals = meals.filter((m, i) => m.serviceTime !== initial.meals[i].serviceTime || m.endTime !== initial.meals[i].endTime);
-  const changed = changedMeals.length > 0 || daysBefore !== initial.cutoff.daysBefore || cutoffTime !== initial.cutoff.time;
+  const [warnMinutes, setWarnMinutes] = useState(initial.warnMinutes);
+  const changed =
+    JSON.stringify(meals) !== JSON.stringify(initial.meals) ||
+    daysBefore !== initial.cutoff.daysBefore ||
+    cutoffTime !== initial.cutoff.time ||
+    warnMinutes !== initial.warnMinutes;
   const { busy, error, onSubmit } = useSave(
     () =>
       update({
-        meals: changedMeals.map(({ mealType, serviceTime, endTime }) => ({ mealType, serviceTime, endTime })),
+        meals: meals.map(({ mealType, displayName, serviceTime, endTime, serviceDays, active }) => ({
+          mealType,
+          displayName,
+          serviceTime,
+          endTime,
+          serviceDays,
+          active,
+        })),
         cutoff: { daysBefore, time: cutoffTime },
+        warnMinutes,
       }),
     (result) => {
       const n = (result as { openMealsUpdated: number }).openMealsUpdated;
       return n > 0 ? `Saved. ${n} coming meal${n === 1 ? "" : "s"} still open for choosing updated too.` : "Saved.";
     },
   );
-  const setMeal = (i: number, key: "serviceTime" | "endTime", value: string) =>
-    setMeals((current) => current.map((m, j) => (j === i ? { ...m, [key]: value } : m)));
+  const setMeal = (i: number, change: Partial<MealSetting>) =>
+    setMeals((current) => current.map((m, j) => (j === i ? { ...m, ...change } : m)));
 
   return (
     <>
       <SectionHeading
-        title="Meal times & deadline"
-        description="When each meal is served, and until when residents can choose. Times are in the PG's time zone."
+        title="Meals & deadline"
+        description="Which meals are served, on which days and when, and until when residents can choose. Times are in the PG's time zone."
       />
       <form noValidate className="flex flex-col gap-4" onSubmit={onSubmit}>
         {error ? <Banner tone="danger">{error}</Banner> : null}
-        <Card>
-          <CardBody className="flex flex-col gap-4">
-            <h3 className="font-semibold">Meal times</h3>
-            <ul className="flex flex-col divide-y divide-border">
-              {meals.map((meal, i) => (
-                <li
-                  key={meal.mealType}
-                  className="grid grid-cols-2 items-end gap-3 py-3 first:pt-0 last:pb-0 sm:grid-cols-[6rem_1fr_1fr]"
-                >
-                  <p className="col-span-2 font-medium sm:col-span-1 sm:pb-3">{meal.displayName}</p>
-                  <Field id={`${meal.mealType}-start`} label="Starts">
-                    {(p) => <Input {...p} type="time" value={meal.serviceTime} onChange={(e) => setMeal(i, "serviceTime", e.target.value)} />}
-                  </Field>
-                  <Field id={`${meal.mealType}-end`} label="Ends">
-                    {(p) => <Input {...p} type="time" value={meal.endTime} onChange={(e) => setMeal(i, "endTime", e.target.value)} />}
-                  </Field>
-                </li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
+        {meals.map((meal, i) => (
+          <Card key={meal.mealType}>
+            <CardBody className="flex flex-col gap-4">
+              <div className="flex items-end gap-3">
+                <Field id={`${meal.mealType}-name`} label="Meal name" className="flex-1">
+                  {(p) => <Input {...p} maxLength={30} value={meal.displayName} onChange={(e) => setMeal(i, { displayName: e.target.value })} />}
+                </Field>
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    className="size-5 accent-primary"
+                    checked={meal.active}
+                    onChange={(e) => setMeal(i, { active: e.target.checked })}
+                  />
+                  Served
+                </label>
+              </div>
+              {meal.active ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field id={`${meal.mealType}-start`} label="Starts">
+                      {(p) => <Input {...p} type="time" value={meal.serviceTime} onChange={(e) => setMeal(i, { serviceTime: e.target.value })} />}
+                    </Field>
+                    <Field id={`${meal.mealType}-end`} label="Ends">
+                      {(p) => <Input {...p} type="time" value={meal.endTime} onChange={(e) => setMeal(i, { endTime: e.target.value })} />}
+                    </Field>
+                  </div>
+                  <div role="group" aria-label={`Days ${meal.displayName || "this meal"} is served`} className="flex flex-col gap-1.5">
+                    <span className="text-sm font-medium">Days</span>
+                    <div className="grid grid-cols-7 gap-1">
+                      {WEEKDAYS.map((day, d) => {
+                        const on = meal.serviceDays.includes(d);
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            aria-pressed={on}
+                            aria-label={day}
+                            onClick={() =>
+                              setMeal(i, {
+                                serviceDays: on ? meal.serviceDays.filter((x) => x !== d) : [...meal.serviceDays, d].sort(),
+                              })
+                            }
+                            className={cn(
+                              "min-h-11 rounded-md border text-xs font-medium transition-colors",
+                              on
+                                ? "border-primary bg-primary-subtle text-primary-text"
+                                : "border-border bg-surface text-foreground-muted hover:bg-subtle",
+                            )}
+                          >
+                            {day.slice(0, 2)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-foreground-secondary">Not served. Residents won&apos;t see it.</p>
+              )}
+            </CardBody>
+          </Card>
+        ))}
         <Card>
           <CardBody className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <h3 className="font-semibold">Deadline to choose</h3>
               <p className="text-sm text-foreground-secondary">
-                The same deadline covers all of a day&apos;s meals. Now: {daysBefore === 0 ? "on the day" : "the evening before"}, at{" "}
-                {formatClock(cutoffTime)}.
+                Shown to residents; after it, their choices for the day are locked. Now:{" "}
+                {daysBefore === 0 ? "on the day" : "the day before"}, at {cutoffTime ? formatClock(cutoffTime) : "–"}.
               </p>
             </div>
             <div className="grid grid-cols-2 items-end gap-3">
@@ -227,14 +293,26 @@ function MealTimesForm({ initial }: { initial: SettingsData }) {
                 {(p) => <Input {...p} type="time" value={cutoffTime} onChange={(e) => setCutoffTime(e.target.value)} />}
               </Field>
             </div>
+            <Field id="warn" label="Warn residents" hint="Their screen turns amber this long before the deadline if something is unanswered.">
+              {(p) => (
+                <NativeSelect {...p} value={warnMinutes} onChange={(e) => setWarnMinutes(Number(e.target.value))}>
+                  {WARN_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label} before
+                    </option>
+                  ))}
+                </NativeSelect>
+              )}
+            </Field>
           </CardBody>
         </Card>
         <p className="text-sm text-foreground-secondary">
-          Changes also apply to coming days that are still open for choosing. Meals that have already closed keep their
-          times and deadline, so past counts don&apos;t change.
+          Changes also apply to coming days that are still open for choosing. Days that have already closed keep what
+          they had, so past counts don&apos;t change. A meal you stop serving on an open day is removed, or shown as not
+          served if someone already answered for it.
         </p>
         <Button type="submit" loading={busy} disabled={!changed} className="self-start">
-          Save meal times
+          Save meals
         </Button>
       </form>
     </>

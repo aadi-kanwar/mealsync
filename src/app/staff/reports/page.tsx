@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { addDays } from "@convex/lib/time";
 import { useMe } from "@/components/app/session";
 import { RequireStaff } from "@/components/app/staff-gate";
@@ -13,6 +14,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadingState } from "@/components/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -36,6 +38,10 @@ function Reports() {
   const today = todayIn(me?.property?.timezone);
   const [from, setFrom] = useState(`${today.slice(0, 8)}01`);
   const [to, setTo] = useState(today);
+  const [residentId, setResidentId] = useState<Id<"residents"> | "">("");
+  const people = useQuery(api.reports.residents);
+  const person = people?.find((p) => p.residentId === residentId);
+  const forWhom = residentId === "" ? {} : { residentId };
   const problem =
     from === "" || to === ""
       ? "Choose a start and an end date."
@@ -44,7 +50,7 @@ function Reports() {
         : addDays(from, MAX_DAYS - 1) < to
           ? `A report can cover at most ${MAX_DAYS} days.`
           : null;
-  const summary = useQuery(api.reports.summary, problem === null ? { from, to } : "skip");
+  const summary = useQuery(api.reports.summary, problem === null ? { from, to, ...forWhom } : "skip");
   const exportCsv = useMutation(api.reports.exportCsv);
   const [busy, setBusy] = useState(false);
 
@@ -62,6 +68,23 @@ function Reports() {
       />
       <Card className="max-w-2xl">
         <CardBody className="flex flex-col gap-4">
+          <Field
+            id="report-who"
+            label="Report for"
+            hint={residentId === "" ? "Totals for the whole PG." : "Every meal this resident chose, day by day."}
+          >
+            {(p) => (
+              <NativeSelect {...p} value={residentId} onChange={(e) => setResidentId(e.target.value as Id<"residents"> | "")}>
+                <option value="">All residents</option>
+                {(people ?? []).map((r) => (
+                  <option key={r.residentId} value={r.residentId}>
+                    {r.displayName} · Room {r.roomNumber}
+                    {r.movedOut ? " (moved out)" : ""}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </Field>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Quick ranges">
             {presets.map((p) => (
               <Button
@@ -91,7 +114,7 @@ function Reports() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  const { filename, csv } = await exportCsv({ from, to });
+                  const { filename, csv } = await exportCsv({ from, to, ...forWhom });
                   // A byte-order mark so Excel reads the file as UTF-8.
                   const url = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
                   const link = Object.assign(document.createElement("a"), { href: url, download: filename });
@@ -120,6 +143,7 @@ function Reports() {
       ) : (
         <section aria-labelledby="summary" className="flex max-w-2xl flex-col gap-2">
           <h2 id="summary" className="font-serif text-2xl tracking-tight">
+            {person ? `${person.displayName} · ` : ""}
             {formatDay(from, "d MMM yyyy")} – {formatDay(to, "d MMM yyyy")}
           </h2>
           {summary.meals.length === 0 ? (
@@ -156,8 +180,9 @@ function Reports() {
             </Card>
           )}
           <p className="text-sm text-foreground-secondary">
-            Totals add up each day&apos;s count. Residents on leave aren&apos;t counted; residents who moved out are counted for
-            the days they lived here. The download has one row per meal per day.
+            {person
+              ? "Days they were on leave or not living here, and cancelled meals, aren't in these totals; the download lists them. It has one row per meal per day, with their choice and when they last saved it."
+              : "Totals add up each day's count. Residents on leave aren't counted; residents who moved out are counted for the days they lived here. The download has one row per meal per day."}
           </p>
         </section>
       )}

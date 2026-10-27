@@ -44,9 +44,21 @@ cooking targets, buffers, actuals or kitchen reports.
     demand if someone opens the app first).
   - Meal timings (default): Breakfast 7:30–9:30 AM, Lunch 12:00–2:00 PM,
     Snacks 5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by **6:00 AM
-    on the same day**. The Admin changes these in **Settings → Meal times &
-    deadline**.
-- **Phone reminders:** residents who turn them on (Profile) get a phone
+    on the same day**. The Admin changes these in **Settings → Meals &
+    deadline**: each meal's name, whether it's served, which days, its
+    times, the deadline (any time, on the day or the day before) and how
+    long before the deadline residents' screens turn amber.
+- **Add to home screen:** after signing in, everyone gets a pop-up asking to
+  add Dine to their home screen / app drawer (with the steps for their
+  phone, or a one-tap **Add to home screen** in Chrome). It comes back on
+  every visit until Dine is opened from the icon. **Not now** hides it
+  until the next visit.
+- **Phone reminders:** browsers only allow notifications after the person
+  taps Allow, so they can't be switched on for everyone automatically.
+  Residents get a **Turn on meal reminders** pop-up on every visit until
+  they're on; on a phone where notifications are already allowed (e.g.
+  signing in again), they're turned on without asking. Residents who turn
+  them on get a phone
   notification at the times the Admin sets (default **9:00 PM and 5:00 AM**)
   if they still haven't chosen all meals for the next day that's open. Works
   in Chrome on Android; on iPhone, Dine must first be added to the Home
@@ -81,11 +93,13 @@ cooking targets, buffers, actuals or kitchen reports.
     week**. After that they alternate by themselves every Monday, and
     residents see each meal's dishes. On a phone, Menu and Staff are linked
     from the top of the Dashboard.
-  - *Reports* (Admin only): choose dates (up to 100 days; "This month",
+  - *Reports* (Admin only): all residents, or **one resident** (current or
+    moved out); choose dates (up to 100 days; "This month",
     "Last month", "Last 7 days" shortcuts), see totals per meal, and
     **Download CSV**: one row per meal per day with residents counted, Yes,
-    No, Not answered and % answered. Opens in Excel or Google Sheets.
-  - *Settings* (Admin only), in sections: **PG details**, **Meal times &
+    No, Not answered and % answered (for one resident: their choice for each
+    meal and when they saved it). Opens in Excel or Google Sheets.
+  - *Settings* (Admin only), in sections: **PG details**, **Meals &
     deadline** (changes also apply to coming days still open; closed meals
     never change), **Phone reminders** (on/off, up to 4 times a day),
     **Resident messages**, and a link to the **Design system** (a reference

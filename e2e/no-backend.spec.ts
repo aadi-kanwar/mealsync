@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // These checks need no database: they cover page protection and the
 // sign-in form's own validation.

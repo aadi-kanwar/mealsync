@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { readFile } from "node:fs/promises";
 
 /**
@@ -27,10 +27,19 @@ test("the Admin's settings are in sections; meal times, deadline and reminders c
   const sections = page.getByRole("navigation", { name: "Settings sections" });
   await expect(page.getByRole("heading", { name: "PG details" })).toBeVisible();
 
-  await sections.getByRole("button", { name: "Meal times & deadline" }).click();
+  await sections.getByRole("button", { name: "Meals & deadline" }).click();
   await expect(page).toHaveURL(/section=meals/);
+  await expect(page.getByLabel("Meal name").first()).toHaveValue("Breakfast");
   await expect(page.getByLabel("Starts").first()).toHaveValue("07:30");
-  await expect(page.getByLabel("Time", { exact: true })).toHaveValue("06:00");
+  await expect(page.getByLabel("Served").first()).toBeChecked();
+  const breakfastDays = page.getByRole("group", { name: "Days Breakfast is served" });
+  await expect(breakfastDays.getByRole("button", { name: "Sun" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Time", { exact: true })).toHaveValue(/^\d\d:\d\d$/);
+  await expect(page.getByLabel("Warn residents")).toHaveValue(/^\d+$/);
+  // Editing enables Save; nothing is saved here (shared dev data).
+  await expect(page.getByRole("button", { name: "Save meals" })).toBeDisabled();
+  await breakfastDays.getByRole("button", { name: "Sun" }).click();
+  await expect(page.getByRole("button", { name: "Save meals" })).toBeEnabled();
 
   await sections.getByRole("button", { name: "Phone reminders" }).click();
   await expect(page.getByLabel("Send reminders")).toBeChecked();
@@ -76,6 +85,17 @@ test("the Admin previews and downloads a report for chosen dates", async ({ page
   const csv = await readFile((await file.path())!, "utf8");
   expect(csv).toContain("Date,Day,Meal,Status,Residents counted,Yes,No,Not answered,Answered");
   expect(csv.trim().split("\r\n").length).toBeGreaterThan(1);
+
+  // One resident's report.
+  await page.getByLabel("Report for").selectOption({ label: "TEST Resident A · Room 101" });
+  await expect(page.getByRole("heading", { name: /^TEST Resident A ·/ })).toBeVisible();
+  const own = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download CSV" }).click();
+  const ownFile = await own;
+  expect(ownFile.suggestedFilename()).toMatch(/^dine-test-resident-a-/);
+  const ownCsv = await readFile((await ownFile.path())!, "utf8");
+  expect(ownCsv).toContain("Resident,Room,Date,Day,Meal,Choice,Last saved");
+  expect(ownCsv).toContain("TEST Resident A,101,");
 
   await page.getByLabel("From").fill("2026-01-01");
   await expect(page.getByText("A report can cover at most 100 days.")).toBeVisible();

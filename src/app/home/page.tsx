@@ -7,7 +7,6 @@ import { addDays } from "@convex/lib/time";
 import { AnswerProgress, answeredCount, DayEditor, SaveBar, useMealDrafts } from "@/components/app/meal-editor";
 import { isOpen, type MyDays } from "@/components/app/meal-shared";
 import { Eyebrow } from "@/components/app/brand";
-import { PhoneRemindersNudge } from "@/components/app/reminders";
 import { ResidentPage, type ResidentContext } from "@/components/app/resident-page";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -90,7 +89,6 @@ function DayMeals({ data, now, today, timezone }: ResidentContext & { data: MyDa
         <Icon icon={Leaf} className="mt-0.5" />
         <p className="whitespace-pre-line">{data.property.wasteMessage}</p>
       </aside>
-      <PhoneRemindersNudge />
       <SaveBar drafts={drafts} today={today} timezone={timezone} />
     </>
   );
