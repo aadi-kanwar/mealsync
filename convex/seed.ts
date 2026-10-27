@@ -170,3 +170,35 @@ export const attachTestUser = internalMutation({
     return null;
   },
 });
+
+/**
+ * DEVELOPMENT ONLY: removes the accounts the automated browser tests create
+ * ("E2E Person ..."), with their logins and meal choices. Refuses to run
+ * unless test data is allowed on this deployment (never on production).
+ *
+ * Run with:  npx convex run seed:removeTestSignups
+ */
+export const removeTestSignups = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    if (!devSeedAllowed(process.env).allowed) throw new Error("Refusing: test data isn't allowed on this deployment.");
+    const profiles = (await ctx.db.query("userProfiles").collect()).filter((p) => p.displayName.startsWith("E2E Person"));
+    const userIds = new Set<Id<"users">>(profiles.map((p) => p.authUserId));
+    const residents = (await ctx.db.query("residents").collect()).filter((r) => userIds.has(r.userId));
+    const residentIds = new Set(residents.map((r) => r._id));
+    const sessions = (await ctx.db.query("authSessions").collect()).filter((s) => userIds.has(s.userId));
+    const sessionIds = new Set(sessions.map((s) => s._id));
+    const rows = [
+      ...(await ctx.db.query("mealResponses").collect()).filter((r) => residentIds.has(r.residentId)),
+      ...residents,
+      ...profiles,
+      ...(await ctx.db.query("staffRoles").collect()).filter((r) => userIds.has(r.userId)),
+      ...(await ctx.db.query("authRefreshTokens").collect()).filter((t) => sessionIds.has(t.sessionId)),
+      ...sessions,
+      ...(await ctx.db.query("authAccounts").collect()).filter((a) => userIds.has(a.userId)),
+    ];
+    for (const row of rows) await ctx.db.delete(row._id);
+    for (const userId of userIds) await ctx.db.delete(userId);
+    return { removedAccounts: userIds.size };
+  },
+});

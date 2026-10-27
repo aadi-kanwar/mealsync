@@ -81,6 +81,12 @@ describe("development seed", () => {
     expect(await t.run((ctx) => ctx.db.query("users").collect())).toHaveLength(0);
   });
 
+  test("removing automated-test sign-ups also refuses unless test data is allowed", async () => {
+    const t = await setupTest();
+    delete process.env.MEALSYNC_ALLOW_DEV_SEED;
+    await expect(t.mutation(internal.seed.removeTestSignups, {})).rejects.toThrow(/Refusing/);
+  });
+
   test("creates clearly labelled TEST accounts that can sign in; rerunning adds no duplicates", async () => {
     const t = await setupTest();
     process.env.MEALSYNC_ALLOW_DEV_SEED = "true";

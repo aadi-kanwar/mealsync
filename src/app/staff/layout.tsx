@@ -43,7 +43,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         <div className="flex h-14 items-center justify-between gap-3 px-4">
           <div className="flex min-w-0 items-center gap-3">
             <Brand />
-            <span className="truncate border-l border-border pl-3 text-xs text-foreground-secondary">
+            <span className="hidden truncate border-l border-border pl-3 text-xs text-foreground-secondary sm:block">
               {me.property?.name} · {me.profile?.displayName} ({me.staffRoles.map((r) => ROLE_LABEL[r]).join(", ")})
             </span>
           </div>
