@@ -2,6 +2,9 @@
 
 import { Check, CircleDashed, Clock, Coffee, Cookie, Info, Lock, Moon, Plus, Trash2, Users, Utensils, X } from "lucide-react";
 import { useState } from "react";
+import { Brand, Eyebrow } from "@/components/app/brand";
+import { MealCountRow, type StaffMeal } from "@/components/app/meal-counts";
+import { DatePicker } from "@/components/app/staff-date";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { STAFF_NAV } from "@/components/nav/nav-items";
 import { BottomNav, StaffSidebar } from "@/components/nav/staff-nav";
@@ -19,7 +22,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PasswordInput } from "@/components/ui/password-input";
 import { LoadingState, Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState, ErrorState, NotAuthorizedState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -52,6 +54,7 @@ const COLOR_TOKENS = [
   ["foreground", "bg-foreground"],
   ["primary", "bg-primary"],
   ["primary-hover", "bg-primary-hover"],
+  ["primary-soft", "bg-primary-soft"],
   ["primary-subtle", "bg-primary-subtle"],
   ["success-subtle", "bg-success-subtle"],
   ["warning-subtle", "bg-warning-subtle"],
@@ -61,7 +64,10 @@ const COLOR_TOKENS = [
 ] as const;
 
 const TYPE_SCALE = [
-  ["2xl · 28/36 · semibold", "text-2xl font-semibold"],
+  ["3xl serif · 36/40 · page titles", "font-serif text-3xl"],
+  ["2xl serif · 28/36 · headings", "font-serif text-2xl"],
+  ["2xl serif italic · accent words", "font-serif text-2xl italic text-primary-soft"],
+  ["2xl · 28/36 · semibold (numbers)", "text-2xl font-semibold"],
   ["xl · 22/28 · semibold", "text-xl font-semibold"],
   ["lg · 18/26 · medium", "text-lg font-medium"],
   ["base · 16/24 · regular", "text-base"],
@@ -79,10 +85,23 @@ const SPACING = [
   ["12 · 48px", "w-12"],
 ] as const;
 
+const SAMPLE_TODAY = "2026-11-03";
+// Sample rows for this reference page only (not real data).
+const SAMPLE_MEALS = [
+  { name: "Breakfast", serviceTime: "07:30", endTime: "09:30", menu: "Poha, tea", counts: { eligible: 118, yes: 96, no: 14, unanswered: 8, balanced: true, notCounted: 0 } },
+  { name: "Lunch", serviceTime: "12:00", endTime: "14:00", menu: "Dal, rice, roti", counts: { eligible: 118, yes: 104, no: 9, unanswered: 5, balanced: true, notCounted: 0 } },
+].map((m, i) => ({
+  ...m,
+  serviceId: `sample-${i}`,
+  mealType: "lunch",
+  cutoffAt: 1,
+  cancelled: false,
+})) as unknown as StaffMeal[];
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="border-b border-border pb-2 text-lg font-medium">{title}</h2>
+      <h2 className="border-b border-border pb-2 font-serif text-2xl">{title}</h2>
       {children}
     </section>
   );
@@ -107,6 +126,29 @@ function DesignSystem() {
         description="Every Dine colour, size and component. If a screen looks different from this page, the screen is wrong."
       />
 
+      <Section title="Brand and labels">
+        <Row label="wordmark (headers)">
+          <Brand />
+        </Row>
+        <Row label="wordmark (landing and sign-in)">
+          <Brand size="lg" />
+        </Row>
+        <Row label="eyebrow label">
+          <Eyebrow>Tomorrow</Eyebrow>
+        </Row>
+        <Row label="display heading with italic accent">
+          <p className="font-serif text-3xl tracking-tight">
+            Every meal you skip is still <em className="text-primary-soft">cooked for you.</em>
+          </p>
+        </Row>
+        <Row label="feature band">
+          <div className="flex max-w-lg flex-col gap-2 rounded-md bg-primary p-5 text-primary-foreground">
+            <p className="font-serif text-2xl italic">Food cooked today can&apos;t be served tomorrow.</p>
+            <p className="text-sm opacity-90">Short supporting text in the band.</p>
+          </div>
+        </Row>
+      </Section>
+
       <Section title="Colour tokens">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {COLOR_TOKENS.map(([name, cls]) => (
@@ -117,12 +159,13 @@ function DesignSystem() {
           ))}
         </div>
         <p className="text-sm text-foreground-secondary">
-          One accent (muted green) for primary actions and “Yes”. Text colours meet WCAG AA (4.5:1) on every
-          background they are used on.
+          In the Livoza style: warm cream neutrals and one accent, deep teal, for primary actions and “Yes”.
+          Soft teal is only for large italic accent words. Text colours meet WCAG AA (4.5:1) on every background
+          they are used on.
         </p>
       </Section>
 
-      <Section title="Typography (Geist, six sizes)">
+      <Section title="Typography (Instrument Serif headings, Geist text)">
         <div className="flex flex-col gap-3">
           {TYPE_SCALE.map(([label, cls]) => (
             <div key={label} className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-6">
@@ -149,11 +192,11 @@ function DesignSystem() {
         <div className="flex flex-wrap gap-6">
           <div className="flex flex-col gap-1.5">
             <div className="size-16 rounded-sm border border-border-strong bg-surface" />
-            <span className="text-xs text-foreground-muted">radius-sm · 6px</span>
+            <span className="text-xs text-foreground-muted">radius-sm · 8px</span>
           </div>
           <div className="flex flex-col gap-1.5">
             <div className="size-16 rounded-md border border-border-strong bg-surface" />
-            <span className="text-xs text-foreground-muted">radius-md · 10px</span>
+            <span className="text-xs text-foreground-muted">radius-md · 14px (cards, inputs)</span>
           </div>
           <div className="flex flex-col gap-1.5">
             <div className="size-16 rounded-md bg-surface shadow-sm" />
@@ -173,7 +216,7 @@ function DesignSystem() {
         </div>
       </Section>
 
-      <Section title="Buttons (44px tall minimum)">
+      <Section title="Buttons (pill-shaped, 44px tall minimum)">
         {(["primary", "secondary", "ghost", "destructive"] as const).map((variant) => (
           <Row key={variant} label={variant}>
             <Button variant={variant}>
@@ -281,13 +324,15 @@ function DesignSystem() {
         </div>
       </Section>
 
-      <Section title="Stat cards">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Eligible" value={118} />
-          <StatCard label="Yes" value={96} emphasis />
-          <StatCard label="No" value={14} />
-          <StatCard label="Not answered" value={8} hint="Chase these" />
-        </div>
+      <Section title="Date picker and dashboard meal row">
+        <DatePicker date={SAMPLE_TODAY} today={SAMPLE_TODAY} onChange={() => {}} />
+        <Card>
+          <ul className="divide-y divide-border" aria-label="Sample meals">
+            {SAMPLE_MEALS.map((meal) => (
+              <MealCountRow key={meal.serviceId} meal={meal} now={0} today={SAMPLE_TODAY} timezone="Asia/Kolkata" />
+            ))}
+          </ul>
+        </Card>
       </Section>
 
       <Section title="Banners">

@@ -45,8 +45,9 @@ cooking targets, buffers, actuals or kitchen reports.
     5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by **6:00 AM on
     the same day**.
 - **Staff screens** (`/staff`, Admin and Warden):
-  - *Dashboard* (the headcount): pick a day (Yesterday / Today / Tomorrow or
-    any date). For each meal it shows how many residents said **Yes**, said
+  - *Dashboard* (the headcount): one compact row per meal, so the whole day
+    fits on one screen. Pick a day (Yesterday / Today / Tomorrow, or the
+    calendar button for any date). For each meal it shows how many residents said **Yes**, said
     **No**, and have **Not answered**, plus whether choices are still open.
     Numbers update live. Also shows sign-ups waiting.
   - *Responses*: every resident counted that day, one line each: name, room,

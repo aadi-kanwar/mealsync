@@ -2,14 +2,16 @@
 
 import { useMutation } from "convex/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { CalendarDays } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@convex/_generated/api";
 import { addDays, DEFAULT_TIMEZONE } from "@convex/lib/time";
 import { Banner } from "@/components/ui/banner";
+import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { friendlyError } from "@/lib/errors";
-import { todayIn } from "@/lib/format";
+import { formatDay, todayIn } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useMe } from "./session";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -54,27 +56,62 @@ export function DatePicker({
     { label: "Tomorrow", value: addDays(today, 1) },
   ];
   return (
-    <div className="flex flex-wrap items-end gap-2 print:hidden" role="group" aria-label="Choose a date">
-      {shortcuts.map((s) => (
-        <Button
-          key={s.label}
-          variant={date === s.value ? "primary" : "secondary"}
-          aria-pressed={date === s.value}
-          onClick={() => onChange(s.value)}
-        >
-          {s.label}
-        </Button>
-      ))}
-      <Input
+    <div className="flex print:hidden" role="group" aria-label="Choose a date">
+      <div className="inline-flex max-w-full items-center rounded-full bg-muted p-1">
+        {shortcuts.map((s) => (
+          <button
+            key={s.label}
+            type="button"
+            aria-pressed={date === s.value}
+            onClick={() => onChange(s.value)}
+            className={cn(
+              "min-h-11 rounded-full px-3 text-sm font-medium transition-colors sm:px-4",
+              date === s.value ? "bg-primary text-primary-foreground" : "text-foreground-secondary hover:text-foreground",
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
+        <OtherDate date={date} picked={!shortcuts.some((s) => s.value === date)} onChange={onChange} />
+      </div>
+    </div>
+  );
+}
+
+/** A calendar button that opens the phone's date picker; shows the date when one is picked. */
+function OtherDate({ date, picked, onChange }: { date: string; picked: boolean; onChange: (date: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <label
+      className={cn(
+        "relative flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors",
+        picked ? "bg-primary text-primary-foreground" : "text-foreground-secondary hover:text-foreground",
+      )}
+      onClick={(event) => {
+        // Open the native picker where supported; otherwise the input receives the click.
+        if (input.current && "showPicker" in input.current) {
+          event.preventDefault();
+          try {
+            input.current.showPicker();
+          } catch {
+            input.current.focus();
+          }
+        }
+      }}
+    >
+      <Icon icon={CalendarDays} />
+      {picked ? formatDay(date, "d MMM") : <span className="sr-only">Pick a date</span>}
+      <input
+        ref={input}
         type="date"
         aria-label="Date"
-        className="w-auto"
+        className="pointer-events-none absolute inset-0 opacity-0"
         value={date}
         onChange={(event) => {
           if (DATE_RE.test(event.target.value)) onChange(event.target.value);
         }}
       />
-    </div>
+    </label>
   );
 }
 

@@ -106,12 +106,15 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   // answered every meal two days ahead, but nothing three days ahead.
   const isoIn = (days: number) => formatInTimeZone(new Date(Date.now() + days * 86_400_000), "Asia/Kolkata", "yyyy-MM-dd");
   await warden.goto(`/staff?date=${isoIn(2)}`);
-  const lunchCounts = warden.getByRole("region", { name: /^Lunch/ });
+  const lunchCounts = warden
+    .getByRole("list", { name: "Meals" })
+    .getByRole("listitem")
+    .filter({ has: warden.getByRole("heading", { name: "Lunch" }) });
   for (const label of ["Yes", "No", "Not answered"]) {
     await expect(lunchCounts.getByText(label, { exact: true })).toBeVisible();
   }
-  await expect(lunchCounts.getByText(/residents? counted for this meal/)).toBeVisible();
-  await expect(warden.getByText("These numbers don't add up")).toHaveCount(0);
+  await expect(warden.getByText(/residents counted/)).toBeVisible();
+  await expect(warden.getByText(/don't add up/)).toHaveCount(0);
   // Responses: every resident's choices and when they last saved.
   const responseRow = () =>
     warden.getByRole("list", { name: "Residents' responses" }).getByRole("listitem").filter({ hasText: name });

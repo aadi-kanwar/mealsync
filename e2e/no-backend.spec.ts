@@ -12,12 +12,12 @@ test("signed-out visitors are sent to the sign-in page", async ({ page }) => {
 
 test("the landing page offers two ways in", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /before you cook/ })).toBeVisible();
-  await page.getByRole("link", { name: "PG admins" }).click();
+  await expect(page.getByRole("heading", { name: /cooked for you/ })).toBeVisible();
+  await page.getByRole("link", { name: "PG admin? Sign in here" }).click();
   await expect(page.getByRole("heading", { name: "Admin sign in" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Create account" })).toHaveCount(0);
   await page.getByRole("link", { name: "Dine home" }).click();
-  await page.getByRole("link", { name: "Residents and wardens" }).click();
+  await page.getByRole("link", { name: "Sign in or create account" }).click();
   await expect(page.getByRole("tab", { name: "Create account" })).toBeVisible();
 });
 
