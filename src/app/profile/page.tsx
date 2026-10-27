@@ -8,6 +8,7 @@ import { api } from "@convex/_generated/api";
 import { formatPhoneForDisplay } from "@convex/lib/inputRules";
 import { addDays } from "@convex/lib/time";
 import { dayLabel, type Day, type Meal } from "@/components/app/meal-shared";
+import { PhoneRemindersCard } from "@/components/app/reminders";
 import { ResidentPage, type ResidentContext } from "@/components/app/resident-page";
 import { SignOutButton } from "@/components/app/session";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ function Profile(ctx: ResidentContext) {
           Change password
         </Link>
       </Button>
+      <PhoneRemindersCard />
       <History {...ctx} />
       <SignOutButton variant="secondary" />
     </>

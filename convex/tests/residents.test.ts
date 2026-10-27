@@ -219,3 +219,39 @@ describe("changing your own password", () => {
     expect(await errorCode(t.action(api.users.changePassword, { newPassword: "fresh-tea-91" }))).toBe("NOT_SIGNED_IN");
   });
 });
+
+describe("editing a resident's name or room", () => {
+  test("the Warden corrects them; the resident sees it; past choices keep the old details; audited", async () => {
+    const { t, warden } = await setup();
+    const resident = await createActiveResident(t, "Asha Rao", "204");
+    const dinner = await t.run(async (ctx) =>
+      (await ctx.db.query("mealServices").collect()).find((s) => s.serviceDate === "2026-10-25" && s.mealType === "dinner")!,
+    );
+    await resident.as.mutation(api.meals.saveChoices, { choices: [{ mealServiceId: dinner._id, selection: "yes" }] });
+
+    await warden.as.mutation(api.residents.updateDetails, {
+      residentId: resident.residentId,
+      displayName: "  Asha Rao Sharma ",
+      roomNumber: "305",
+    });
+    const me = await resident.as.query(api.users.me, {});
+    expect(me?.profile?.displayName).toBe("Asha Rao Sharma");
+    expect(me?.resident?.roomNumber).toBe("305");
+    const log = await t.run((ctx) => ctx.db.query("mealActivityLog").collect());
+    expect(log[0]).toMatchObject({ residentName: "Asha Rao", roomNumber: "204" });
+    const audit = await t.run((ctx) => ctx.db.query("auditLogs").collect());
+    expect(audit.at(-1)).toMatchObject({ action: "resident.details_updated" });
+
+    const edit = (as: typeof warden.as, displayName: string, roomNumber: string) =>
+      errorCode(as.mutation(api.residents.updateDetails, { residentId: resident.residentId, displayName, roomNumber }));
+    expect(await edit(warden.as, "A", "305")).toBe("INVALID_INPUT");
+    expect(await edit(warden.as, "Asha Rao", "")).toBe("INVALID_INPUT");
+    expect(await edit(resident.as, "Asha Rao", "999")).toBe("FORBIDDEN");
+    const pending = await createSignedUp(t, "Pending Person", "101");
+    expect(
+      await errorCode(
+        warden.as.mutation(api.residents.updateDetails, { residentId: pending.residentId, displayName: "Pending Person", roomNumber: "102" }),
+      ),
+    ).toBe("CONFLICT");
+  });
+});

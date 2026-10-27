@@ -15,7 +15,7 @@ import {
   staffMutation,
   staffQuery,
 } from "./lib/functions";
-import { isoDateSchema, roomNumberSchema } from "./lib/inputRules";
+import { displayNameSchema, isoDateSchema, roomNumberSchema } from "./lib/inputRules";
 import { addDays, localDateString } from "./lib/time";
 
 /** Loads a resident and confirms it belongs to the staff member's property. */
@@ -206,6 +206,42 @@ export const moveOut = staffMutation({
       entityType: "residents",
       entityId: resident._id,
       metadata: { lastDay: date.data, previousLastDay: resident.validUntil ?? null },
+    });
+    return null;
+  },
+});
+
+/**
+ * Corrects a resident's name or room (e.g. a typo at sign-up, or a room
+ * change). Past choices keep the name and room they were made under.
+ */
+export const updateDetails = staffMutation({
+  roles: ["warden"],
+  args: { residentId: v.id("residents"), displayName: v.string(), roomNumber: v.string() },
+  handler: async (ctx, args) => {
+    const name = displayNameSchema.safeParse(args.displayName);
+    if (!name.success) throw appError("INVALID_INPUT", name.error.issues[0]?.message);
+    const room = roomNumberSchema.safeParse(args.roomNumber);
+    if (!room.success) throw appError("INVALID_INPUT", room.error.issues[0]?.message);
+    const { property, userId } = ctx.staff;
+    const resident = await loadOwnResident(ctx, property._id, args.residentId);
+    if (resident.status !== "active") throw appError("CONFLICT", "This person isn't a current resident.");
+    if (name.data === resident.displayName && room.data === resident.roomNumber) return null;
+    await ctx.db.patch(resident._id, { displayName: name.data, roomNumber: room.data });
+    const profile = await getProfile(ctx, resident.userId);
+    if (profile !== null && profile.displayName !== name.data) {
+      await ctx.db.patch(profile._id, { displayName: name.data });
+    }
+    await writeAudit(ctx, {
+      property,
+      actorUserId: userId,
+      action: "resident.details_updated",
+      entityType: "residents",
+      entityId: resident._id,
+      metadata: {
+        before: { displayName: resident.displayName, roomNumber: resident.roomNumber },
+        after: { displayName: name.data, roomNumber: room.data },
+      },
     });
     return null;
   },

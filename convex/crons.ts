@@ -17,4 +17,8 @@ crons.daily(
 // marked as moved out.
 crons.daily("end finished stays", { hourUTC: 18, minuteUTC: 40 }, internal.residents.endStays, {});
 
+// Every 5 minutes, send the phone reminder if one of the times set in
+// Settings is due (at most once per time per day).
+crons.interval("send meal reminders", { minutes: 5 }, internal.notifications.sendDueReminders, {});
+
 export default crons;

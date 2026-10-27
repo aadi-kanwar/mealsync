@@ -1,0 +1,166 @@
+"use client";
+
+import { useMutation, useQuery } from "convex/react";
+import { Download } from "lucide-react";
+import { useState } from "react";
+import { api } from "@convex/_generated/api";
+import { addDays } from "@convex/lib/time";
+import { useMe } from "@/components/app/session";
+import { RequireStaff } from "@/components/app/staff-gate";
+import { Banner } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import { Card, CardBody } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadingState } from "@/components/ui/skeleton";
+import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { toast } from "@/components/ui/toaster";
+import { friendlyError } from "@/lib/errors";
+import { formatDay, todayIn } from "@/lib/format";
+
+/** Matches MAX_REPORT_DAYS in convex/reports.ts. */
+const MAX_DAYS = 100;
+
+export default function ReportsPage() {
+  return (
+    <RequireStaff roles={[]}>
+      <Reports />
+    </RequireStaff>
+  );
+}
+
+function Reports() {
+  const me = useMe();
+  const today = todayIn(me?.property?.timezone);
+  const [from, setFrom] = useState(`${today.slice(0, 8)}01`);
+  const [to, setTo] = useState(today);
+  const problem =
+    from === "" || to === ""
+      ? "Choose a start and an end date."
+      : to < from
+        ? "The end date must be on or after the start date."
+        : addDays(from, MAX_DAYS - 1) < to
+          ? `A report can cover at most ${MAX_DAYS} days.`
+          : null;
+  const summary = useQuery(api.reports.summary, problem === null ? { from, to } : "skip");
+  const exportCsv = useMutation(api.reports.exportCsv);
+  const [busy, setBusy] = useState(false);
+
+  const presets = [
+    { label: "This month", from: `${today.slice(0, 8)}01`, to: today },
+    { label: "Last month", from: `${addDays(`${today.slice(0, 8)}01`, -1).slice(0, 8)}01`, to: addDays(`${today.slice(0, 8)}01`, -1) },
+    { label: "Last 7 days", from: addDays(today, -6), to: today },
+  ];
+
+  return (
+    <>
+      <PageHeader
+        title="Reports"
+        description="Meal counts for the dates you choose: per meal, per day, how many said Yes, No, or didn't answer. Downloads as a spreadsheet (CSV)."
+      />
+      <Card className="max-w-2xl">
+        <CardBody className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Quick ranges">
+            {presets.map((p) => (
+              <Button
+                key={p.label}
+                variant={from === p.from && to === p.to ? "primary" : "secondary"}
+                aria-pressed={from === p.from && to === p.to}
+                onClick={() => {
+                  setFrom(p.from);
+                  setTo(p.to);
+                }}
+              >
+                {p.label}
+              </Button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 items-end gap-3 sm:flex">
+            <Field id="report-from" label="From" className="sm:w-44">
+              {(p) => <Input {...p} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />}
+            </Field>
+            <Field id="report-to" label="To" className="sm:w-44">
+              {(p) => <Input {...p} type="date" value={to} onChange={(e) => setTo(e.target.value)} />}
+            </Field>
+            <Button
+              className="col-span-2"
+              loading={busy}
+              disabled={problem !== null}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const { filename, csv } = await exportCsv({ from, to });
+                  // A byte-order mark so Excel reads the file as UTF-8.
+                  const url = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
+                  const link = Object.assign(document.createElement("a"), { href: url, download: filename });
+                  document.body.append(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("Report downloaded.");
+                } catch (error) {
+                  toast.error(friendlyError(error));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Icon icon={Download} />
+              Download CSV
+            </Button>
+          </div>
+          {problem !== null && from !== "" && to !== "" ? <Banner tone="danger">{problem}</Banner> : null}
+        </CardBody>
+      </Card>
+
+      {problem !== null ? null : summary === undefined ? (
+        <LoadingState rows={4} label="Loading the report" />
+      ) : (
+        <section aria-labelledby="summary" className="flex max-w-2xl flex-col gap-2">
+          <h2 id="summary" className="font-serif text-2xl tracking-tight">
+            {formatDay(from, "d MMM yyyy")} – {formatDay(to, "d MMM yyyy")}
+          </h2>
+          {summary.meals.length === 0 ? (
+            <p className="text-sm text-foreground-secondary">No meals were scheduled on these dates.</p>
+          ) : (
+            <Card>
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Meal</TH>
+                    <TH className="hidden text-right sm:table-cell">Days</TH>
+                    <TH className="text-right">Yes</TH>
+                    <TH className="text-right">No</TH>
+                    <TH className="text-right whitespace-normal">Not answered</TH>
+                    <TH className="text-right">Answered</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {summary.meals.map((m) => {
+                    const total = m.yes + m.no + m.unanswered;
+                    return (
+                      <TR key={m.mealType}>
+                        <TD className="font-medium">{m.meal}</TD>
+                        <TD className="tabular hidden text-right sm:table-cell">{m.days}</TD>
+                        <TD className="tabular text-right">{m.yes}</TD>
+                        <TD className="tabular text-right">{m.no}</TD>
+                        <TD className="tabular text-right">{m.unanswered}</TD>
+                        <TD className="tabular text-right">{total === 0 ? "–" : `${Math.round(((m.yes + m.no) / total) * 100)}%`}</TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </Table>
+            </Card>
+          )}
+          <p className="text-sm text-foreground-secondary">
+            Totals add up each day&apos;s count. Residents on leave aren&apos;t counted; residents who moved out are counted for
+            the days they lived here. The download has one row per meal per day.
+          </p>
+        </section>
+      )}
+    </>
+  );
+}

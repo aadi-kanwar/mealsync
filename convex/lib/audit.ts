@@ -18,7 +18,11 @@ export type AuditAction =
   | "user.password_changed"
   | "menu.updated"
   | "menu.rotation_set"
-  | "settings.updated";
+  | "settings.updated"
+  | "settings.meal_times_updated"
+  | "settings.reminders_updated"
+  | "report.exported"
+  | "resident.details_updated";
 
 /**
  * Appends one audit entry. Callers must never put passwords, tokens or
