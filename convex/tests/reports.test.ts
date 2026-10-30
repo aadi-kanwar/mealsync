@@ -38,11 +38,11 @@ test("the Admin downloads a report for chosen dates: per meal per day, Yes / No 
   expect(preview.meals.find((m) => m.mealType === "lunch")).toMatchObject({ days: 2, yes: 1, no: 1, unanswered: 2 });
 
   const { filename, csv } = await admin.as.mutation(api.reports.exportCsv, { from: "2026-10-25", to: "2026-10-25" });
-  expect(filename).toBe("dine-report-2026-10-25-to-2026-10-25.csv");
+  expect(filename).toBe("dine-test-pg-2026-10-25-to-2026-10-25.csv");
   const lines = csv.trimEnd().split("\r\n");
-  expect(lines[0]).toBe("Date,Day,Meal,Status,Residents counted,Yes,No,Not answered,Answered");
-  expect(lines).toContain("2026-10-25,Sunday,Lunch,Served,2,1,1,0,100%");
-  expect(lines).toContain("2026-10-25,Sunday,Dinner,Served,2,0,0,2,0%");
+  expect(lines[0]).toBe("Property,Date,Day,Meal,Status,Residents counted,Yes,No,Not answered,Answered");
+  expect(lines).toContain("Test PG,2026-10-25,Sunday,Lunch,Served,2,1,1,0,100%");
+  expect(lines).toContain("Test PG,2026-10-25,Sunday,Dinner,Served,2,0,0,2,0%");
   expect(lines).toHaveLength(5);
   const audit = await t.run((ctx) => ctx.db.query("auditLogs").collect());
   expect(audit.at(-1)).toMatchObject({ action: "report.exported" });
@@ -93,10 +93,10 @@ test("the Admin downloads one resident's choices for chosen dates, moved-out res
   });
   expect(filename).toBe("dine-asha-rao-2026-10-25-to-2026-10-26.csv");
   const lines = csv.trimEnd().split("\r\n");
-  expect(lines[0]).toBe("Resident,Room,Date,Day,Meal,Choice,Last saved");
-  expect(lines).toContain("Asha Rao,101,2026-10-25,Sunday,Breakfast,Not answered,");
-  expect(lines).toContain("Asha Rao,101,2026-10-25,Sunday,Dinner,No,2026-10-24 18:00");
-  expect(lines).toContain("Asha Rao,101,2026-10-26,Monday,Lunch,Not living here,");
+  expect(lines[0]).toBe("Resident,Room,Property,Date,Day,Meal,Choice,Last saved");
+  expect(lines).toContain("Asha Rao,101,Test PG,2026-10-25,Sunday,Breakfast,Not answered,");
+  expect(lines).toContain("Asha Rao,101,Test PG,2026-10-25,Sunday,Dinner,No,2026-10-24 18:00");
+  expect(lines).toContain("Asha Rao,101,Test PG,2026-10-26,Monday,Lunch,Not living here,");
   expect(lines).toHaveLength(9);
   const audit = await t.run((ctx) => ctx.db.query("auditLogs").collect());
   expect(audit.at(-1)).toMatchObject({ action: "report.exported", entityType: "residents" });

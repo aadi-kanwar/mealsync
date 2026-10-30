@@ -5,16 +5,21 @@ import { createProperty, errorCode, setupTest, type T } from "./harness.test-uti
 
 const PASSWORD = "plain-tea-42";
 
-function signIn(
+async function signIn(
   t: T,
   flow: "signIn" | "signUp",
   phone: string,
   password: string,
-  profile: { displayName?: string; roomNumber?: string } = { displayName: "Asha Rao", roomNumber: "204" },
+  profile: { displayName?: string; roomNumber?: string; propertyId?: string } = {
+    displayName: "Asha Rao",
+    roomNumber: "204",
+  },
 ) {
-  return t.action(api.auth.signIn, {
+  // Residents sign up at a PG: the first one, unless the test says otherwise.
+  const propertyId = await t.run(async (ctx) => (await ctx.db.query("properties").first())?._id ?? "");
+  return await t.action(api.auth.signIn, {
     provider: "phone-password",
-    params: flow === "signUp" ? { flow, phone, password, ...profile } : { flow, phone, password },
+    params: flow === "signUp" ? { flow, phone, password, propertyId, ...profile } : { flow, phone, password },
   });
 }
 

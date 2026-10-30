@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,12 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
+import { useQuery } from "@/lib/convex";
 
 export type Me = NonNullable<FunctionReturnType<typeof api.users.me>>;
 
 /** undefined while loading, null when signed out. */
 export function useMe() {
-  return useQuery(api.users.me);
+  return useQuery(api.users.me, {});
 }
 
 /** Which screen a person belongs on. The backend enforces the same rules. */
@@ -30,13 +30,15 @@ export function destinationFor(me: Me | null): string {
   return "/pending";
 }
 
-export function SignOutButton({ variant = "ghost" }: { variant?: "ghost" | "secondary" }) {
+export function SignOutButton({ variant = "ghost", full = false }: { variant?: "ghost" | "secondary"; full?: boolean }) {
   const { signOut } = useAuthActions();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   return (
     <Button
       variant={variant}
+      width={full ? "full" : "auto"}
+      className={full ? "justify-start" : undefined}
       loading={busy}
       onClick={async () => {
         setBusy(true);

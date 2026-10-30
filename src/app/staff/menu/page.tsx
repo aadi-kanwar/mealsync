@@ -1,12 +1,15 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { Download, FileSpreadsheet, Upload } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
 import { MEAL_TYPES, type MealType } from "@convex/lib/validators";
+import type { Id } from "@convex/_generated/dataModel";
 import { MEAL_ICONS } from "@/components/app/meal-shared";
+import { RequireOneProperty } from "@/components/app/property-scope";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -18,7 +21,9 @@ import { LoadingState } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
 import { formatDay } from "@/lib/format";
+import { downloadBlob, menuWorkbook, readMenuWorkbook } from "@/lib/menu-excel";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@/lib/convex";
 
 type MenuData = FunctionReturnType<typeof api.menus.get>;
 type Label = "A" | "B";
@@ -52,26 +57,31 @@ export default function MenuPage() {
 }
 
 function Menu() {
-  const data = useQuery(api.menus.get);
   return (
     <>
       <PageHeader
         title="Menu"
-        description="Fill in your two weekly menus. They take turns week by week (Monday to Sunday), and residents see each meal's dishes."
+        description="Fill in your two weekly menus, here or in Excel. They take turns week by week (Monday to Sunday), and residents see each meal's dishes."
       />
-      {data === undefined ? (
-        <LoadingState rows={4} />
-      ) : (
-        <>
-          <Rotation data={data} />
-          <MenuEditor data={data} />
-        </>
-      )}
+      <RequireOneProperty what="The menu">
+        {(property) => <PropertyMenu key={property.propertyId} propertyId={property.propertyId} name={property.name} />}
+      </RequireOneProperty>
     </>
   );
 }
 
-function Rotation({ data }: { data: MenuData }) {
+function PropertyMenu({ propertyId, name }: { propertyId: Id<"properties">; name: string }) {
+  const data = useQuery(api.menus.get, { propertyId });
+  if (data === undefined) return <LoadingState rows={4} />;
+  return (
+    <>
+      <Rotation data={data} propertyId={propertyId} />
+      <MenuEditor data={data} propertyId={propertyId} propertyName={name} />
+    </>
+  );
+}
+
+function Rotation({ data, propertyId }: { data: MenuData; propertyId: Id<"properties"> }) {
   const setThisWeek = useMutation(api.menus.setThisWeek);
   const [busy, setBusy] = useState<Label | null>(null);
   const week = `${formatDay(data.thisWeekStart, "d MMM")} – ${formatDay(addDays(data.thisWeekStart, 6), "d MMM")}`;
@@ -96,7 +106,7 @@ function Rotation({ data }: { data: MenuData }) {
               if (data.thisWeek === label) return;
               setBusy(label);
               try {
-                await setThisWeek({ label });
+                await setThisWeek({ propertyId, label });
                 toast.success(`This week uses Menu ${label}.`);
               } catch (error) {
                 toast.error(friendlyError(error));
@@ -113,7 +123,7 @@ function Rotation({ data }: { data: MenuData }) {
   );
 }
 
-function MenuEditor({ data }: { data: MenuData }) {
+function MenuEditor({ data, propertyId, propertyName }: { data: MenuData; propertyId: Id<"properties">; propertyName: string }) {
   const save = useMutation(api.menus.save);
   const saved: Record<Label, Draft> = { A: toDraft(data.menus[0].entries), B: toDraft(data.menus[1].entries) };
   const [drafts, setDrafts] = useState<Record<Label, Draft>>(saved);
@@ -126,7 +136,7 @@ function MenuEditor({ data }: { data: MenuData }) {
     setBusy(true);
     setError(null);
     try {
-      for (const label of changed) await save({ label, entries: toEntries(drafts[label]) });
+      for (const label of changed) await save({ propertyId, label, entries: toEntries(drafts[label]) });
       toast.success(changed.length === 2 ? "Both menus saved." : `Menu ${changed[0]} saved.`);
     } catch (saveError) {
       setError(friendlyError(saveError));
@@ -137,6 +147,14 @@ function MenuEditor({ data }: { data: MenuData }) {
 
   return (
     <section className="flex flex-col gap-4" aria-label="Edit menus">
+      <ExcelCard
+        drafts={drafts}
+        propertyName={propertyName}
+        onLoaded={(grids) => {
+          setDrafts(grids);
+          setError(null);
+        }}
+      />
       <div role="tablist" aria-label="Menus" className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1 sm:w-80">
         {(["A", "B"] as const).map((label) => (
           <button
@@ -205,5 +223,84 @@ function MenuEditor({ data }: { data: MenuData }) {
         </div>
       </div>
     </section>
+  );
+}
+
+const EXCEL_MEALS = MEAL_TYPES.map((mealType) => ({ mealType, name: MEAL_NAMES[mealType] }));
+
+/** Download both menus as an Excel file (the format to fill in), or fill the editor from one. */
+function ExcelCard({
+  drafts,
+  propertyName,
+  onLoaded,
+}: {
+  drafts: Record<Label, Draft>;
+  propertyName: string;
+  onLoaded: (grids: Record<Label, Draft>) => void;
+}) {
+  const file = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<"download" | "upload" | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const slug = propertyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "pg";
+  return (
+    <Card className="flex flex-col gap-3 p-4">
+      <div className="flex items-start gap-3">
+        <Icon icon={FileSpreadsheet} className="mt-0.5 text-foreground-secondary" />
+        <div className="flex flex-col gap-0.5">
+          <h2 className="font-medium">Use Excel</h2>
+          <p className="text-sm text-foreground-secondary">
+            Download the menus as an Excel file (two sheets, Menu A and Menu B: days down the side, meals across the
+            top), fill it in, and upload it. The menus below fill in from the file; check them, then press Save.
+          </p>
+        </div>
+      </div>
+      {problem ? <Banner tone="danger" title="Couldn't read the file">{problem}</Banner> : null}
+      <div className="grid grid-cols-2 gap-2 sm:flex">
+        <Button
+          variant="secondary"
+          loading={busy === "download"}
+          onClick={async () => {
+            setBusy("download");
+            try {
+              downloadBlob(await menuWorkbook(drafts, EXCEL_MEALS), `dine-menu-${slug}.xlsx`);
+            } catch (error) {
+              toast.error(friendlyError(error));
+            } finally {
+              setBusy(null);
+            }
+          }}
+        >
+          <Icon icon={Download} />
+          Download
+        </Button>
+        <Button variant="secondary" loading={busy === "upload"} onClick={() => file.current?.click()}>
+          <Icon icon={Upload} />
+          Upload
+        </Button>
+        <input
+          ref={file}
+          type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          className="sr-only"
+          aria-label="Upload a menu Excel file"
+          tabIndex={-1}
+          onChange={async (event) => {
+            const chosen = event.target.files?.[0];
+            event.target.value = "";
+            if (!chosen) return;
+            setBusy("upload");
+            setProblem(null);
+            try {
+              onLoaded(await readMenuWorkbook(chosen, EXCEL_MEALS));
+              toast.success("Menus filled in from the file. Check them, then press Save.");
+            } catch (error) {
+              setProblem(error instanceof Error ? error.message : "That file couldn't be read.");
+            } finally {
+              setBusy(null);
+            }
+          }}
+        />
+      </div>
+    </Card>
   );
 }

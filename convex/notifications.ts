@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { formatInTimeZone } from "date-fns-tz";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { appError } from "./lib/errors";
 import { internalMutation, residentMutation, signedInMutation, signedInQuery, viewerQuery } from "./lib/functions";
 import { loadRoster } from "./lib/headcount";
@@ -126,60 +126,67 @@ export async function reminderTargets(ctx: Pick<QueryCtx, "db">, property: Doc<"
 }
 
 /**
- * Scheduled every 5 minutes (crons.ts): sends a reminder when one is due and
- * hasn't gone out yet today.
+ * Scheduled every 5 minutes (crons.ts): for each property, sends a reminder
+ * when one is due and hasn't gone out yet today.
  */
 export const sendDueReminders = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const property = await ctx.db
+    let sent = 0;
+    for (const property of await ctx.db
       .query("properties")
       .withIndex("by_status", (q) => q.eq("status", "active"))
-      .first();
-    if (property === null) return { sent: 0 };
-    const settings = reminderSettings(property);
-    if (!settings.enabled) return { sent: 0 };
-    const now = Date.now();
-    const time = dueReminder(settings.times, formatInTimeZone(new Date(now), property.timezone, "HH:mm"));
-    if (time === null) return { sent: 0 };
-    // A reminder due just after midnight belongs to the day it fires on.
-    const date = localDateString(now, property.timezone);
-    const already = await ctx.db
-      .query("reminderRuns")
-      .withIndex("by_property_date_time", (q) => q.eq("propertyId", property._id).eq("date", date).eq("time", time))
-      .first();
-    if (already !== null) return { sent: 0 };
-
-    const targets = await reminderTargets(ctx, property, now);
-    const userIds = new Set(targets?.residents.map((r) => r.userId) ?? []);
-    const devices = [];
-    for (const userId of userIds) {
-      for (const sub of await ctx.db
-        .query("pushSubscriptions")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect()) {
-        devices.push({ subscriptionId: sub._id, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
-      }
+      .collect()) {
+      sent += await sendDueAt(ctx, property);
     }
-    await ctx.db.insert("reminderRuns", {
-      propertyId: property._id,
-      date,
-      time,
-      sentAt: now,
-      recipients: devices.length,
-    });
-    if (targets !== null && devices.length > 0) {
-      const by = formatInTimeZone(new Date(targets.cutoff), property.timezone, "h:mm a");
-      await ctx.scheduler.runAfter(0, internal.push.send, {
-        devices,
-        title: "Dine: choose your meals",
-        body: `You haven't chosen all your meals for ${targets.isToday ? "today" : "tomorrow"} yet. Please answer by ${by}, so nothing is cooked to be thrown away.`,
-        url: "/home",
-      });
-    }
-    return { sent: devices.length };
+    return { sent };
   },
 });
+
+/** One property's due reminder, if any. Returns how many devices it went to. */
+async function sendDueAt(ctx: MutationCtx, property: Doc<"properties">): Promise<number> {
+  const settings = reminderSettings(property);
+  if (!settings.enabled) return 0;
+  const now = Date.now();
+  const time = dueReminder(settings.times, formatInTimeZone(new Date(now), property.timezone, "HH:mm"));
+  if (time === null) return 0;
+  // A reminder due just after midnight belongs to the day it fires on.
+  const date = localDateString(now, property.timezone);
+  const already = await ctx.db
+    .query("reminderRuns")
+    .withIndex("by_property_date_time", (q) => q.eq("propertyId", property._id).eq("date", date).eq("time", time))
+    .first();
+  if (already !== null) return 0;
+
+  const targets = await reminderTargets(ctx, property, now);
+  const userIds = new Set(targets?.residents.map((r) => r.userId) ?? []);
+  const devices = [];
+  for (const userId of userIds) {
+    for (const sub of await ctx.db
+      .query("pushSubscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect()) {
+      devices.push({ subscriptionId: sub._id, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
+    }
+  }
+  await ctx.db.insert("reminderRuns", {
+    propertyId: property._id,
+    date,
+    time,
+    sentAt: now,
+    recipients: devices.length,
+  });
+  if (targets !== null && devices.length > 0) {
+    const by = formatInTimeZone(new Date(targets.cutoff), property.timezone, "h:mm a");
+    await ctx.scheduler.runAfter(0, internal.push.send, {
+      devices,
+      title: "Dine: choose your meals",
+      body: `You haven't chosen all your meals for ${targets.isToday ? "today" : "tomorrow"} yet. Please answer by ${by}, so nothing is cooked to be thrown away.`,
+      url: "/home",
+    });
+  }
+  return devices.length;
+}
 
 /** Removes devices the push service says no longer exist. */
 export const removeSubscriptions = internalMutation({

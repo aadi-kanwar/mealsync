@@ -99,8 +99,9 @@ describe("development seed", () => {
       residents: await ctx.db.query("residents").collect(),
       properties: await ctx.db.query("properties").collect(),
     }));
-    expect(state.properties).toHaveLength(1);
-    expect(state.properties[0].name).toContain("TEST");
+    // Two PGs in one organisation, so screens covering several can be tried.
+    expect(state.properties).toHaveLength(2);
+    expect(state.properties.every((p) => p.name.includes("TEST") && p.organizationId === state.properties[0].organizationId)).toBe(true);
     expect(state.profiles).toHaveLength(5);
     expect(state.profiles.every((p) => p.displayName.startsWith("TEST"))).toBe(true);
     expect(state.staff.map((s) => s.role).sort()).toEqual(["admin", "warden"]);

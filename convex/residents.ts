@@ -1,16 +1,18 @@
 import { invalidateSessions, modifyAccountCredentials } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { PHONE_PASSWORD_PROVIDER } from "./auth";
 import { writeAudit } from "./lib/audit";
 import { appError } from "./lib/errors";
 import {
   getProfile,
-  getStaffRoles,
+  getStaffAccess,
+  inScope,
   internalMutation,
   internalQuery,
+  loadManagedResident,
   staffAction,
   staffMutation,
   staffQuery,
@@ -18,15 +20,21 @@ import {
 import { displayNameSchema, isoDateSchema, roomNumberSchema } from "./lib/inputRules";
 import { addDays, localDateString } from "./lib/time";
 
-/** Loads a resident and confirms it belongs to the staff member's property. */
-async function loadOwnResident(
+/** Residents with `status` in the properties a staff screen covers. */
+async function residentsIn(
   ctx: Pick<QueryCtx, "db">,
-  propertyId: Id<"properties">,
-  residentId: Id<"residents">,
-): Promise<Doc<"residents">> {
-  const resident = await ctx.db.get(residentId);
-  if (resident === null || resident.propertyId !== propertyId) throw appError("NOT_FOUND");
-  return resident;
+  properties: readonly Doc<"properties">[],
+  status: Doc<"residents">["status"],
+) {
+  const lists = await Promise.all(
+    properties.map((p) =>
+      ctx.db
+        .query("residents")
+        .withIndex("by_property_status", (q) => q.eq("propertyId", p._id).eq("status", status))
+        .collect(),
+    ),
+  );
+  return lists.flat();
 }
 
 /** New sign-ups waiting for approval. Admin/Warden only (includes phone numbers). */
@@ -34,12 +42,8 @@ export const listPending = staffQuery({
   roles: ["warden"],
   args: {},
   handler: async (ctx) => {
-    const pending = await ctx.db
-      .query("residents")
-      .withIndex("by_property_status", (q) =>
-        q.eq("propertyId", ctx.staff.property._id).eq("status", "pending"),
-      )
-      .collect();
+    const properties = inScope(ctx.staff);
+    const pending = await residentsIn(ctx, properties, "pending");
     const rows = await Promise.all(
       pending.map(async (resident) => {
         const profile = await ctx.db
@@ -50,6 +54,8 @@ export const listPending = staffQuery({
           residentId: resident._id,
           displayName: resident.displayName,
           roomNumber: resident.roomNumber,
+          propertyId: resident.propertyId,
+          propertyName: properties.find((p) => p._id === resident.propertyId)?.name ?? "",
           phone: profile?.phone ?? null,
           signedUpAt: resident.createdAt,
         };
@@ -64,13 +70,7 @@ export const pendingCount = staffQuery({
   roles: ["warden"],
   args: {},
   handler: async (ctx) => {
-    const pending = await ctx.db
-      .query("residents")
-      .withIndex("by_property_status", (q) =>
-        q.eq("propertyId", ctx.staff.property._id).eq("status", "pending"),
-      )
-      .collect();
-    return pending.length;
+    return (await residentsIn(ctx, inScope(ctx.staff), "pending")).length;
   },
 });
 
@@ -83,8 +83,8 @@ export const approve = staffMutation({
     const date = isoDateSchema.safeParse(args.validFrom);
     if (!date.success) throw appError("INVALID_INPUT", date.error.issues[0]?.message);
 
-    const { property, userId } = ctx.staff;
-    const resident = await loadOwnResident(ctx, property._id, args.residentId);
+    const { userId } = ctx.staff;
+    const { resident, property } = await loadManagedResident(ctx, ctx.staff, args.residentId);
     if (resident.status !== "pending") {
       throw appError("CONFLICT", "This sign-up has already been dealt with.");
     }
@@ -116,8 +116,8 @@ export const reject = staffMutation({
   roles: ["warden"],
   args: { residentId: v.id("residents") },
   handler: async (ctx, args) => {
-    const { property, userId } = ctx.staff;
-    const resident = await loadOwnResident(ctx, property._id, args.residentId);
+    const { userId } = ctx.staff;
+    const { resident, property } = await loadManagedResident(ctx, ctx.staff, args.residentId);
     if (resident.status !== "pending") {
       throw appError("CONFLICT", "This sign-up has already been dealt with.");
     }
@@ -145,21 +145,21 @@ export const list = staffQuery({
   roles: ["warden"],
   args: {},
   handler: async (ctx) => {
-    const propertyId = ctx.staff.property._id;
-    const byStatus = (status: "active" | "inactive") =>
-      ctx.db
-        .query("residents")
-        .withIndex("by_property_status", (q) => q.eq("propertyId", propertyId).eq("status", status))
-        .collect();
-    const residents = [...(await byStatus("active")), ...(await byStatus("inactive"))];
+    const properties = inScope(ctx.staff);
+    const residents = [
+      ...(await residentsIn(ctx, properties, "active")),
+      ...(await residentsIn(ctx, properties, "inactive")),
+    ];
     const rows = await Promise.all(
       residents.map(async (resident) => {
         const profile = await getProfile(ctx, resident.userId);
-        const isStaff = (await getStaffRoles(ctx, propertyId, resident.userId)).length > 0;
+        const isStaff = (await getStaffAccess(ctx, resident.userId)) !== null;
         return {
           residentId: resident._id,
           displayName: resident.displayName,
           roomNumber: resident.roomNumber,
+          propertyId: resident.propertyId,
+          propertyName: properties.find((p) => p._id === resident.propertyId)?.name ?? "",
           phone: profile?.phone ?? null,
           status: resident.status as "active" | "inactive",
           validFrom: resident.validFrom ?? null,
@@ -188,8 +188,8 @@ export const moveOut = staffMutation({
   handler: async (ctx, args) => {
     const date = isoDateSchema.safeParse(args.lastDay);
     if (!date.success) throw appError("INVALID_INPUT", date.error.issues[0]?.message);
-    const { property, userId } = ctx.staff;
-    const resident = await loadOwnResident(ctx, property._id, args.residentId);
+    const { userId } = ctx.staff;
+    const { resident, property } = await loadManagedResident(ctx, ctx.staff, args.residentId);
     if (resident.status !== "active") throw appError("CONFLICT", "This person isn't a current resident.");
     const today = localDateString(Date.now(), property.timezone);
     if (date.data < addDays(today, -1)) {
@@ -223,8 +223,8 @@ export const updateDetails = staffMutation({
     if (!name.success) throw appError("INVALID_INPUT", name.error.issues[0]?.message);
     const room = roomNumberSchema.safeParse(args.roomNumber);
     if (!room.success) throw appError("INVALID_INPUT", room.error.issues[0]?.message);
-    const { property, userId } = ctx.staff;
-    const resident = await loadOwnResident(ctx, property._id, args.residentId);
+    const { userId } = ctx.staff;
+    const { resident, property } = await loadManagedResident(ctx, ctx.staff, args.residentId);
     if (resident.status !== "active") throw appError("CONFLICT", "This person isn't a current resident.");
     if (name.data === resident.displayName && room.data === resident.roomNumber) return null;
     await ctx.db.patch(resident._id, { displayName: name.data, roomNumber: room.data });
@@ -252,8 +252,8 @@ export const cancelMoveOut = staffMutation({
   roles: ["warden"],
   args: { residentId: v.id("residents") },
   handler: async (ctx, args) => {
-    const { property, userId } = ctx.staff;
-    const resident = await loadOwnResident(ctx, property._id, args.residentId);
+    const { userId } = ctx.staff;
+    const { resident, property } = await loadManagedResident(ctx, ctx.staff, args.residentId);
     if (resident.status !== "active" || resident.validUntil === undefined) {
       throw appError("CONFLICT", "There's no move-out to undo.");
     }
@@ -277,33 +277,39 @@ export const cancelMoveOut = staffMutation({
 export const endStays = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const property = await ctx.db
+    let ended = 0;
+    for (const property of await ctx.db
       .query("properties")
       .withIndex("by_status", (q) => q.eq("status", "active"))
-      .first();
-    if (property === null) return 0;
-    const today = localDateString(Date.now(), property.timezone);
-    const active = await ctx.db
-      .query("residents")
-      .withIndex("by_property_status", (q) => q.eq("propertyId", property._id).eq("status", "active"))
-      .collect();
-    let ended = 0;
-    for (const resident of active) {
-      if (resident.validUntil === undefined || resident.validUntil >= today) continue;
-      await ctx.db.patch(resident._id, { status: "inactive" });
-      await writeAudit(ctx, {
-        property,
-        actorUserId: undefined,
-        action: "resident.stay_ended",
-        entityType: "residents",
-        entityId: resident._id,
-        metadata: { lastDay: resident.validUntil },
-      });
-      ended += 1;
+      .collect()) {
+      ended += await endStaysAt(ctx, property);
     }
     return ended;
   },
 });
+
+async function endStaysAt(ctx: Pick<MutationCtx, "db">, property: Doc<"properties">) {
+  const today = localDateString(Date.now(), property.timezone);
+  const active = await ctx.db
+    .query("residents")
+    .withIndex("by_property_status", (q) => q.eq("propertyId", property._id).eq("status", "active"))
+    .collect();
+  let ended = 0;
+  for (const resident of active) {
+    if (resident.validUntil === undefined || resident.validUntil >= today) continue;
+    await ctx.db.patch(resident._id, { status: "inactive" });
+    await writeAudit(ctx, {
+      property,
+      actorUserId: undefined,
+      action: "resident.stay_ended",
+      entityType: "residents",
+      entityId: resident._id,
+      metadata: { lastDay: resident.validUntil },
+    });
+    ended += 1;
+  }
+  return ended;
+}
 
 // Letters and digits that are hard to confuse when read out (no 0/o, 1/l/i).
 const TEMP_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -326,7 +332,7 @@ export const resetPassword = staffAction({
   args: { residentId: v.id("residents") },
   handler: async (ctx, args): Promise<{ temporaryPassword: string }> => {
     const target = await ctx.runQuery(internal.residents.resetTarget, {
-      propertyId: ctx.staff.propertyId,
+      propertyIds: ctx.staff.propertyIds,
       residentId: args.residentId,
     });
     const password = temporaryPassword();
@@ -345,14 +351,15 @@ export const resetPassword = staffAction({
 
 /** Checks the reset is allowed and finds the login to change. */
 export const resetTarget = internalQuery({
-  args: { propertyId: v.id("properties"), residentId: v.id("residents") },
+  args: { propertyIds: v.array(v.id("properties")), residentId: v.id("residents") },
   returns: v.object({ userId: v.id("users"), phone: v.string() }),
   handler: async (ctx, args) => {
-    const resident = await loadOwnResident(ctx, args.propertyId, args.residentId);
+    const resident = await ctx.db.get(args.residentId);
+    if (resident === null || !args.propertyIds.includes(resident.propertyId)) throw appError("NOT_FOUND");
     if (resident.status !== "active") {
       throw appError("CONFLICT", "Only current residents' passwords can be reset here.");
     }
-    if ((await getStaffRoles(ctx, args.propertyId, resident.userId)).length > 0) {
+    if ((await getStaffAccess(ctx, resident.userId)) !== null) {
       throw appError("FORBIDDEN", "Staff passwords can't be reset from here.");
     }
     const user = await ctx.db.get(resident.userId);

@@ -10,9 +10,16 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch, type FieldErrors, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
-import { displayNameSchema, PASSWORD_MIN_LENGTH, passwordProblem, roomNumberSchema } from "@convex/lib/inputRules";
+import { api } from "@convex/_generated/api";
+import {
+  displayNameSchema,
+  PASSWORD_MIN_LENGTH,
+  passwordProblem,
+  placeNameSchema,
+  roomNumberSchema,
+} from "@convex/lib/inputRules";
 import { Brand } from "@/components/app/brand";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +28,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PasswordInput } from "@/components/ui/password-input";
+import { useQuery } from "@/lib/convex";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +39,10 @@ function toE164(country: CountryCode, input: string): string | null {
   return parsed && parsed.isValid() ? parsed.number : null;
 }
 
-function buildSchema(mode: Mode) {
+/** "resident": residents and wardens; "admin": PG owners, whose sign-up creates their organisation. */
+type Kind = "resident" | "admin";
+
+function buildSchema(mode: Mode, kind: Kind) {
   return z
     .object({
       country: z.string(),
@@ -40,15 +51,33 @@ function buildSchema(mode: Mode) {
       confirm: z.string(),
       displayName: z.string(),
       roomNumber: z.string(),
+      organizationId: z.string(),
+      propertyId: z.string(),
+      organizationName: z.string(),
+      propertyName: z.string(),
     })
     .superRefine((values, ctx) => {
       if (mode === "signUp") {
-        for (const [path, schema] of [
-          ["displayName", displayNameSchema],
-          ["roomNumber", roomNumberSchema],
-        ] as const) {
+        const rules =
+          kind === "admin"
+            ? ([
+                ["displayName", displayNameSchema],
+                ["organizationName", placeNameSchema],
+                ["propertyName", placeNameSchema],
+              ] as const)
+            : ([
+                ["displayName", displayNameSchema],
+                ["roomNumber", roomNumberSchema],
+              ] as const);
+        for (const [path, schema] of rules) {
           const result = schema.safeParse(values[path]);
           if (!result.success) ctx.addIssue({ code: "custom", path: [path], message: result.error.issues[0].message });
+        }
+        if (kind === "resident" && values.organizationId === "") {
+          ctx.addIssue({ code: "custom", path: ["organizationId"], message: "Choose your organisation." });
+        }
+        if (kind === "resident" && values.propertyId === "") {
+          ctx.addIssue({ code: "custom", path: ["propertyId"], message: "Choose your PG." });
         }
       }
       const e164 = toE164(values.country as CountryCode, values.phone);
@@ -102,8 +131,8 @@ export default function SignInPage() {
 }
 
 function SignIn() {
-  // ?as=admin: the admins' way in, from the landing page. Sign in only:
-  // admin accounts are never created from a public form.
+  // ?as=admin: the PG owners' way in, from the landing page. Signing up
+  // there creates an organisation with its first PG.
   const admin = useSearchParams().get("as") === "admin";
   const [mode, setMode] = useState<Mode>("signIn");
   return (
@@ -117,23 +146,19 @@ function SignIn() {
           {admin ? "For PG owners and managers." : "Tell the PG which meals you'll eat."}
         </p>
       </div>
-      {admin ? (
-        <AuthForm mode="signIn" admin />
-      ) : (
-        <ResidentTabs mode={mode} setMode={setMode} />
-      )}
+      <AuthTabs mode={mode} setMode={setMode} kind={admin ? "admin" : "resident"} />
     </main>
   );
 }
 
-function ResidentTabs({ mode, setMode }: { mode: Mode; setMode: (mode: Mode) => void }) {
+function AuthTabs({ mode, setMode, kind }: { mode: Mode; setMode: (mode: Mode) => void; kind: Kind }) {
   return (
     <>
       <div role="tablist" aria-label="Sign in or create account" className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
         {(
           [
             ["signIn", "Sign in"],
-            ["signUp", "Create account"],
+            ["signUp", kind === "admin" ? "Create organisation" : "Create account"],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -153,18 +178,29 @@ function ResidentTabs({ mode, setMode }: { mode: Mode; setMode: (mode: Mode) => 
         ))}
       </div>
       {/* Re-mount the form when switching so errors from one mode don't linger. */}
-      <AuthForm key={mode} mode={mode} />
+      <AuthForm key={mode} mode={mode} kind={kind} />
     </>
   );
 }
 
-function AuthForm({ mode, admin = false }: { mode: Mode; admin?: boolean }) {
+function AuthForm({ mode, kind }: { mode: Mode; kind: Kind }) {
   const { signIn } = useAuthActions();
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<FormValues>({
-    resolver: zodResolver(buildSchema(mode)),
-    defaultValues: { country: "IN", phone: "", password: "", confirm: "", displayName: "", roomNumber: "" },
+    resolver: zodResolver(buildSchema(mode, kind)),
+    defaultValues: {
+      country: "IN",
+      phone: "",
+      password: "",
+      confirm: "",
+      displayName: "",
+      roomNumber: "",
+      organizationId: "",
+      propertyId: "",
+      organizationName: "",
+      propertyName: "",
+    },
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -174,15 +210,26 @@ function AuthForm({ mode, admin = false }: { mode: Mode; admin?: boolean }) {
     try {
       await signIn(
         "phone-password",
-        mode === "signUp"
-          ? {
-              flow: mode,
-              phone,
-              password: values.password,
-              displayName: values.displayName.trim(),
-              roomNumber: values.roomNumber.trim(),
-            }
-          : { flow: mode, phone, password: values.password },
+        mode === "signIn"
+          ? { flow: mode, phone, password: values.password }
+          : kind === "admin"
+            ? {
+                flow: mode,
+                account: "organization",
+                phone,
+                password: values.password,
+                displayName: values.displayName.trim(),
+                organizationName: values.organizationName.trim(),
+                propertyName: values.propertyName.trim(),
+              }
+            : {
+                flow: mode,
+                phone,
+                password: values.password,
+                displayName: values.displayName.trim(),
+                roomNumber: values.roomNumber.trim(),
+                propertyId: values.propertyId,
+              },
       );
       router.replace("/");
     } catch (error) {
@@ -195,8 +242,27 @@ function AuthForm({ mode, admin = false }: { mode: Mode; admin?: boolean }) {
       <CardBody>
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           {serverError ? <Banner tone="danger">{serverError}</Banner> : null}
-          {mode === "signUp" ? (
+          {mode === "signUp" && kind === "admin" ? (
             <>
+              <Field id="displayName" label="Your full name" error={errors.displayName?.message}>
+                {(p) => <Input {...p} {...form.register("displayName")} autoComplete="name" />}
+              </Field>
+              <Field
+                id="organizationName"
+                label="Organisation name"
+                hint="Your business. You can add more PGs to it later, in Settings."
+                error={errors.organizationName?.message}
+              >
+                {(p) => <Input {...p} {...form.register("organizationName")} autoComplete="organization" maxLength={80} />}
+              </Field>
+              <Field id="propertyName" label="Your first PG's name" error={errors.propertyName?.message}>
+                {(p) => <Input {...p} {...form.register("propertyName")} autoComplete="off" maxLength={80} placeholder="e.g. Sunrise PG, Koramangala" />}
+              </Field>
+            </>
+          ) : null}
+          {mode === "signUp" && kind === "resident" ? (
+            <>
+              <PlacePicker form={form} errors={errors} />
               <Field id="displayName" label="Full name" error={errors.displayName?.message}>
                 {(p) => <Input {...p} {...form.register("displayName")} autoComplete="name" />}
               </Field>
@@ -253,17 +319,64 @@ function AuthForm({ mode, admin = false }: { mode: Mode; admin?: boolean }) {
             </Field>
           ) : null}
           <Button type="submit" width="full" loading={isSubmitting}>
-            {mode === "signIn" ? "Sign in" : "Create account"}
+            {mode === "signIn" ? "Sign in" : kind === "admin" ? "Create organisation" : "Create account"}
           </Button>
           <p className="text-sm text-foreground-secondary">
-            {admin
-              ? "Admin accounts are set up for you; there's no sign-up here. Forgot your password? Ask another Admin of your PG to help."
+            {kind === "admin"
+              ? mode === "signIn"
+                ? "Forgot your password? Ask another Admin of your organisation to help."
+                : "You'll be the Admin of your organisation. Add Wardens and more PGs from inside Dine."
               : mode === "signIn"
-              ? "Forgot your password? Contact the PG office."
-              : "After you sign up, the Warden checks your details before you can choose meals."}
+                ? "Forgot your password? Contact the PG office."
+                : "After you sign up, the Warden checks your details before you can choose meals."}
           </p>
         </form>
       </CardBody>
     </Card>
+  );
+}
+
+/** Organisation, then PG: dropdowns of the PGs using Dine. */
+function PlacePicker({ form, errors }: { form: UseFormReturn<FormValues>; errors: FieldErrors<FormValues> }) {
+  const directory = useQuery(api.directory.list, {});
+  const organizationId = useWatch({ control: form.control, name: "organizationId" });
+  const organization = directory?.find((o) => o.organizationId === organizationId);
+  return (
+    <>
+      <Field id="organizationId" label="Organisation" error={errors.organizationId?.message}>
+        {(p) => (
+          <NativeSelect
+            {...p}
+            {...form.register("organizationId", {
+              onChange: (event: React.ChangeEvent<HTMLSelectElement>) => {
+                const chosen = directory?.find((o) => o.organizationId === event.target.value);
+                // One PG: choose it straight away.
+                form.setValue("propertyId", chosen?.properties.length === 1 ? chosen.properties[0].propertyId : "");
+              },
+            })}
+            disabled={directory === undefined}
+          >
+            <option value="">{directory === undefined ? "Loading…" : "Choose your organisation"}</option>
+            {directory?.map((o) => (
+              <option key={o.organizationId} value={o.organizationId}>
+                {o.name}
+              </option>
+            ))}
+          </NativeSelect>
+        )}
+      </Field>
+      <Field id="propertyId" label="PG" error={errors.propertyId?.message}>
+        {(p) => (
+          <NativeSelect {...p} {...form.register("propertyId")} disabled={organization === undefined}>
+            <option value="">{organization ? "Choose your PG" : "Choose the organisation first"}</option>
+            {organization?.properties.map((pg) => (
+              <option key={pg.propertyId} value={pg.propertyId}>
+                {pg.name}
+              </option>
+            ))}
+          </NativeSelect>
+        )}
+      </Field>
+    </>
   );
 }

@@ -6,7 +6,7 @@ import type { DataModel } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { FAILED_ATTEMPTS_LIMIT } from "./authLimits";
 import { appError } from "./lib/errors";
-import { normalizePhone, passwordProblem, profileSchema } from "./lib/inputRules";
+import { normalizePhone, organizationSignUpSchema, passwordProblem, profileSchema } from "./lib/inputRules";
 
 export const PHONE_PASSWORD_PROVIDER = "phone-password";
 
@@ -14,8 +14,11 @@ export const PHONE_PASSWORD_PROVIDER = "phone-password";
  * Phone number + password login.
  *
  * The browser calls `signIn("phone-password", { flow, phone, password })`
- * where flow is "signIn" or "signUp". A sign-up also sends `displayName`
- * and `roomNumber`, so the person is asked for them only once. Every
+ * where flow is "signIn" or "signUp". A resident's sign-up also sends
+ * `displayName`, `roomNumber` and the `propertyId` of their PG, so they're
+ * asked only once. An Admin's sign-up (`account: "organization"`) sends
+ * `displayName`, `organizationName` and `propertyName` instead, and creates
+ * their organisation with its first property. Every
  * failure that could reveal whether a number is registered returns the same
  * SIGN_IN_FAILED message.
  */
@@ -32,8 +35,19 @@ const PhonePassword = ConvexCredentials<DataModel>({
     if (!gate.allowed) throw appError("TOO_MANY_ATTEMPTS");
 
     if (flow === "signUp") {
-      const profile = profileSchema.safeParse({ displayName: params.displayName, roomNumber: params.roomNumber });
-      if (!profile.success) throw appError("INVALID_INPUT", profile.error.issues[0]?.message);
+      const forOrganization = params.account === "organization";
+      const details = forOrganization
+        ? organizationSignUpSchema.safeParse({
+            displayName: params.displayName,
+            organizationName: params.organizationName,
+            propertyName: params.propertyName,
+          })
+        : profileSchema.safeParse({ displayName: params.displayName, roomNumber: params.roomNumber });
+      if (!details.success) throw appError("INVALID_INPUT", details.error.issues[0]?.message);
+      const propertyId = typeof params.propertyId === "string" ? params.propertyId : "";
+      if (!forOrganization && !(await ctx.runQuery(internal.directory.propertyIsOpen, { propertyId }))) {
+        throw appError("INVALID_INPUT", "Choose your PG.");
+      }
       const problem = passwordProblem(password, phone);
       if (problem !== null) throw appError("WEAK_PASSWORD", problem);
       if (!(await accountExists(ctx, phone))) {
@@ -52,16 +66,20 @@ const PhonePassword = ConvexCredentials<DataModel>({
         }
         await ctx.runMutation(internal.authLimits.recordSignUp, {});
         try {
-          await ctx.runMutation(internal.users.createProfileAtSignUp, { userId, ...profile.data });
+          if (details.data && "organizationName" in details.data) {
+            await ctx.runMutation(internal.users.createOrganizationAtSignUp, { userId, ...details.data });
+          } else {
+            await ctx.runMutation(internal.users.createProfileAtSignUp, { userId, ...details.data, propertyId });
+          }
         } catch (error) {
-          // The account exists; the app will ask for name and room once more.
+          // The account exists; the app will ask for the details once more.
           console.error("Saving the profile at sign-up failed", error);
         }
         return { userId };
       }
       // Number already registered: behave like a sign-in, so the person who
-      // owns it gets in and anyone else gets the same generic error. The name
-      // and room sent are ignored; an existing profile is never changed here.
+      // owns it gets in and anyone else gets the same generic error. The
+      // details sent are ignored; an existing profile is never changed here.
     }
     return await signInExisting(ctx, phone, password);
   },

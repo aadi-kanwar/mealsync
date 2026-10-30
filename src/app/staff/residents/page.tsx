@@ -1,6 +1,6 @@
 "use client";
 
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Copy, DoorOpen, KeyRound, LogOut, Pencil, Undo2, UserRoundCheck } from "lucide-react";
 import { useState } from "react";
@@ -8,7 +8,7 @@ import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
 import { formatPhoneForDisplay } from "@convex/lib/inputRules";
 import { matchesSearch, sortPeople, SortSelect, type SortKey } from "@/components/app/resident-sort";
-import { useMe } from "@/components/app/session";
+import { usePropertyScope } from "@/components/app/property-scope";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
 import { formatDay, todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@/lib/convex";
 
 type Row = FunctionReturnType<typeof api.residents.list>[number];
 
@@ -38,9 +39,10 @@ export default function ResidentsPage() {
 }
 
 function Residents() {
-  const me = useMe();
-  const today = todayIn(me?.property?.timezone);
-  const rows = useQuery(api.residents.list);
+  const { arg, timezone, current, properties } = usePropertyScope();
+  const today = todayIn(timezone);
+  const rows = useQuery(api.residents.list, arg);
+  const showProperty = current === null && properties.length > 1;
   const [tab, setTab] = useState<"active" | "inactive">("active");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("room-asc");
@@ -97,7 +99,7 @@ function Residents() {
         <Card>
           <ul className="divide-y divide-border" aria-label={tab === "active" ? "Current residents" : "Moved out"}>
             {shown.map((row) => (
-              <ResidentRow key={row.residentId} row={row} today={today} />
+              <ResidentRow key={row.residentId} row={row} today={today} showProperty={showProperty} />
             ))}
           </ul>
         </Card>
@@ -106,7 +108,7 @@ function Residents() {
   );
 }
 
-function ResidentRow({ row, today }: { row: Row; today: string }) {
+function ResidentRow({ row, today, showProperty }: { row: Row; today: string; showProperty: boolean }) {
   const leaving = row.status === "active" && row.validUntil !== null;
   return (
     <li className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -131,6 +133,7 @@ function ResidentRow({ row, today }: { row: Row; today: string }) {
         </div>
         <span className="text-sm text-foreground-secondary">
           Room {row.roomNumber}
+          {showProperty ? ` · ${row.propertyName}` : ""}
           {row.phone ? <> · <span className="tabular">{formatPhoneForDisplay(row.phone)}</span></> : null}
         </span>
       </div>

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { writeAudit } from "./lib/audit";
 import { appError } from "./lib/errors";
-import { staffMutation, staffQuery } from "./lib/functions";
+import { oneProperty, staffMutation, staffQuery } from "./lib/functions";
 import { menuLabelFor, mondayOf } from "./lib/menus";
 import { addDays, localDateString } from "./lib/time";
 import { MEAL_TYPES, vMealType } from "./lib/validators";
@@ -14,7 +14,7 @@ export const get = staffQuery({
   roles: [],
   args: {},
   handler: async (ctx) => {
-    const { property } = ctx.staff;
+    const property = oneProperty(ctx.staff);
     const menus = await ctx.db
       .query("menus")
       .withIndex("by_property_label", (q) => q.eq("propertyId", property._id))
@@ -59,7 +59,8 @@ export const save = staffMutation({
     }
     entries.sort((a, b) => a.weekday - b.weekday || MEAL_TYPES.indexOf(a.mealType) - MEAL_TYPES.indexOf(b.mealType));
 
-    const { property, userId } = ctx.staff;
+    const { userId } = ctx.staff;
+    const property = oneProperty(ctx.staff);
     const existing = await ctx.db
       .query("menus")
       .withIndex("by_property_label", (q) => q.eq("propertyId", property._id).eq("label", args.label))
@@ -94,7 +95,8 @@ export const setThisWeek = staffMutation({
   roles: [],
   args: { label: vLabel },
   handler: async (ctx, args) => {
-    const { property, userId } = ctx.staff;
+    const { userId } = ctx.staff;
+    const property = oneProperty(ctx.staff);
     const thisWeek = mondayOf(localDateString(Date.now(), property.timezone));
     const menuAWeekStart = args.label === "A" ? thisWeek : addDays(thisWeek, 7);
     await ctx.db.patch(property._id, { menuAWeekStart });

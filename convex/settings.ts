@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { writeAudit } from "./lib/audit";
 import { appError } from "./lib/errors";
-import { staffMutation, staffQuery } from "./lib/functions";
+import { oneProperty, staffMutation, staffQuery } from "./lib/functions";
 import {
   MAX_MESSAGE_LENGTH,
   MAX_QUESTION_LENGTH,
@@ -10,22 +10,76 @@ import {
 } from "./lib/messages";
 import { MAX_REMINDER_TIMES, reminderSettings } from "./lib/reminders";
 import { ensureServices, horizonDates, slotRunsOn } from "./lib/meals";
+import { checkName, createProperty } from "./lib/property";
 import { computeCutoffAt, isClock, localDateString } from "./lib/time";
 import { vMealType } from "./lib/validators";
 
-function checkName(value: string, what: string): string {
-  const name = value.trim().replace(/\s+/g, " ");
-  if (name.length < 2 || name.length > 80) throw appError("INVALID_INPUT", `${what} must be 2 to 80 characters.`);
-  return name;
-}
+/** The organisation and its properties, with how many residents each has. Admin only. */
+export const organization = staffQuery({
+  roles: [],
+  args: {},
+  handler: async (ctx) => {
+    const { organization, properties } = ctx.staff;
+    return {
+      name: organization.name,
+      properties: await Promise.all(
+        properties.map(async (p) => ({
+          propertyId: p._id,
+          name: p.name,
+          residents: (
+            await ctx.db
+              .query("residents")
+              .withIndex("by_property_status", (q) => q.eq("propertyId", p._id).eq("status", "active"))
+              .collect()
+          ).length,
+        })),
+      ),
+    };
+  },
+});
 
-/** The organisation and PG details. Admin only. */
+/** Renames the organisation. Admin only; audited. */
+export const renameOrganization = staffMutation({
+  roles: [],
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const name = checkName(args.name, "The organisation name");
+    const { organization, userId } = ctx.staff;
+    if (name === organization.name) return null;
+    await ctx.db.patch(organization._id, { name });
+    await writeAudit(ctx, {
+      property: { organizationId: organization._id },
+      actorUserId: userId,
+      action: "organization.renamed",
+      entityType: "organizations",
+      entityId: organization._id,
+      metadata: { before: organization.name, after: name },
+    });
+    return null;
+  },
+});
+
+/** Adds a property (PG) to the organisation, with the default meals and deadline. Admin only; audited. */
+export const addProperty = staffMutation({
+  roles: [],
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const property = await createProperty(ctx, {
+      organizationId: ctx.staff.organization._id,
+      name: args.name,
+      timezone: ctx.staff.properties[0]?.timezone,
+      createdBy: ctx.staff.userId,
+    });
+    return property._id;
+  },
+});
+
+/** One property's settings. Admin only. */
 export const get = staffQuery({
   roles: [],
   args: {},
   handler: async (ctx) => {
-    const { property } = ctx.staff;
-    const organization = await ctx.db.get(property.organizationId);
+    const property = oneProperty(ctx.staff);
     const slots = (
       await ctx.db
         .query("mealSlots")
@@ -33,7 +87,7 @@ export const get = staffQuery({
         .collect()
     ).sort((a, b) => a.sortOrder - b.sortOrder);
     return {
-      organizationName: organization?.name ?? "",
+      organizationName: ctx.staff.organization.name,
       propertyName: property.name,
       timezone: property.timezone,
       ...residentMessages(property),
@@ -61,28 +115,26 @@ export const get = staffQuery({
   },
 });
 
-/** Renames the organisation and/or the PG. Admin only; audited. */
-export const update = staffMutation({
+/** Renames the chosen property. Admin only; audited. */
+export const renameProperty = staffMutation({
   roles: [],
-  args: { organizationName: v.string(), propertyName: v.string() },
+  args: { name: v.string() },
   handler: async (ctx, args) => {
-    const organizationName = checkName(args.organizationName, "The organisation name");
-    const propertyName = checkName(args.propertyName, "The PG name");
-    const { property, userId } = ctx.staff;
-    const organization = await ctx.db.get(property.organizationId);
-    if (organization === null) throw appError("NOT_FOUND");
-    await ctx.db.patch(organization._id, { name: organizationName });
-    await ctx.db.patch(property._id, { name: propertyName });
+    const name = checkName(args.name, "The property name");
+    const { userId, properties } = ctx.staff;
+    const property = oneProperty(ctx.staff);
+    if (name === property.name) return null;
+    if (properties.some((p) => p._id !== property._id && p.name.toLowerCase() === name.toLowerCase())) {
+      throw appError("CONFLICT", "There's already a property with that name.");
+    }
+    await ctx.db.patch(property._id, { name });
     await writeAudit(ctx, {
       property,
       actorUserId: userId,
       action: "settings.updated",
       entityType: "properties",
       entityId: property._id,
-      metadata: {
-        before: { organizationName: organization.name, propertyName: property.name },
-        after: { organizationName, propertyName },
-      },
+      metadata: { before: { propertyName: property.name }, after: { propertyName: name } },
     });
     return null;
   },
@@ -107,7 +159,8 @@ export const updateResidentMessages = staffMutation({
     if (wasteMessage.length < 10 || wasteMessage.length > MAX_MESSAGE_LENGTH) {
       throw appError("INVALID_INPUT", `The message must be 10 to ${MAX_MESSAGE_LENGTH} characters.`);
     }
-    const { property, userId } = ctx.staff;
+    const { userId } = ctx.staff;
+    const property = oneProperty(ctx.staff);
     await ctx.db.patch(property._id, { dailyQuestions: questions, wasteMessage });
     await writeAudit(ctx, {
       property,
@@ -148,7 +201,8 @@ export const updateMeals = staffMutation({
     warnMinutes: v.number(),
   },
   handler: async (ctx, args) => {
-    const { property, userId } = ctx.staff;
+    const { userId } = ctx.staff;
+    const property = oneProperty(ctx.staff);
     const { daysBefore, time } = args.cutoff;
     if ((daysBefore !== 0 && daysBefore !== 1) || !isClock(time)) {
       throw appError("INVALID_INPUT", "Choose a deadline on the day or the day before, as a time like 06:00.");
@@ -287,7 +341,8 @@ export const updateReminders = staffMutation({
       throw appError("INVALID_INPUT", `At most ${MAX_REMINDER_TIMES} reminders a day.`);
     }
     if (args.enabled && times.length === 0) throw appError("INVALID_INPUT", "Add at least one reminder time.");
-    const { property, userId } = ctx.staff;
+    const { userId } = ctx.staff;
+    const property = oneProperty(ctx.staff);
     await ctx.db.patch(property._id, { remindersEnabled: args.enabled, reminderTimes: times });
     await writeAudit(ctx, {
       property,

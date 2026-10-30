@@ -1,12 +1,12 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { addDays } from "@convex/lib/time";
-import { useMe } from "@/components/app/session";
+import { usePropertyScope } from "@/components/app/property-scope";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
 import { formatDay, todayIn } from "@/lib/format";
+import { useQuery } from "@/lib/convex";
 
 /** Matches MAX_REPORT_DAYS in convex/reports.ts. */
 const MAX_DAYS = 100;
@@ -34,14 +35,15 @@ export default function ReportsPage() {
 }
 
 function Reports() {
-  const me = useMe();
-  const today = todayIn(me?.property?.timezone);
+  const { arg, timezone, current, properties } = usePropertyScope();
+  const today = todayIn(timezone);
   const [from, setFrom] = useState(`${today.slice(0, 8)}01`);
   const [to, setTo] = useState(today);
   const [residentId, setResidentId] = useState<Id<"residents"> | "">("");
-  const people = useQuery(api.reports.residents);
+  const people = useQuery(api.reports.residents, arg);
   const person = people?.find((p) => p.residentId === residentId);
-  const forWhom = residentId === "" ? {} : { residentId };
+  // Only someone from the property chosen now (the choice may have changed since).
+  const forWhom = person ? { residentId: person.residentId } : {};
   const problem =
     from === "" || to === ""
       ? "Choose a start and an end date."
@@ -50,7 +52,7 @@ function Reports() {
         : addDays(from, MAX_DAYS - 1) < to
           ? `A report can cover at most ${MAX_DAYS} days.`
           : null;
-  const summary = useQuery(api.reports.summary, problem === null ? { from, to, ...forWhom } : "skip");
+  const summary = useQuery(api.reports.summary, problem === null ? { ...arg, from, to, ...forWhom } : "skip");
   const exportCsv = useMutation(api.reports.exportCsv);
   const [busy, setBusy] = useState(false);
 
@@ -71,14 +73,15 @@ function Reports() {
           <Field
             id="report-who"
             label="Report for"
-            hint={residentId === "" ? "Totals for the whole PG." : "Every meal this resident chose, day by day."}
+            hint={person ? "Every meal this resident chose, day by day." : current ? `Totals for ${current.name}.` : "Totals for every property, PG by PG."}
           >
             {(p) => (
-              <NativeSelect {...p} value={residentId} onChange={(e) => setResidentId(e.target.value as Id<"residents"> | "")}>
+              <NativeSelect {...p} value={person ? residentId : ""} onChange={(e) => setResidentId(e.target.value as Id<"residents"> | "")}>
                 <option value="">All residents</option>
                 {(people ?? []).map((r) => (
                   <option key={r.residentId} value={r.residentId}>
                     {r.displayName} · Room {r.roomNumber}
+                    {r.propertyName ? ` · ${r.propertyName}` : ""}
                     {r.movedOut ? " (moved out)" : ""}
                   </option>
                 ))}
@@ -114,7 +117,7 @@ function Reports() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  const { filename, csv } = await exportCsv({ from, to, ...forWhom });
+                  const { filename, csv } = await exportCsv({ ...arg, from, to, ...forWhom });
                   // A byte-order mark so Excel reads the file as UTF-8.
                   const url = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
                   const link = Object.assign(document.createElement("a"), { href: url, download: filename });
@@ -143,7 +146,7 @@ function Reports() {
       ) : (
         <section aria-labelledby="summary" className="flex max-w-2xl flex-col gap-2">
           <h2 id="summary" className="font-serif text-2xl tracking-tight">
-            {person ? `${person.displayName} · ` : ""}
+            {person ? `${person.displayName} · ` : current === null && properties.length > 1 ? "All properties · " : ""}
             {formatDay(from, "d MMM yyyy")} – {formatDay(to, "d MMM yyyy")}
           </h2>
           {summary.meals.length === 0 ? (

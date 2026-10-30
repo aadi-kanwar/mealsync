@@ -29,7 +29,7 @@ export const staffForAction = internalQuery({
   args: { roles: v.array(vStaffRole) },
   returns: v.object({
     userId: v.id("users"),
-    propertyId: v.id("properties"),
+    propertyIds: v.array(v.id("properties")),
     displayName: v.string(),
     roles: v.array(vStaffRole),
   }),
@@ -38,7 +38,7 @@ export const staffForAction = internalQuery({
     const staff = await requireRole(ctx, args.roles);
     return {
       userId: staff.userId,
-      propertyId: staff.property._id,
+      propertyIds: staff.properties.map((p) => p._id),
       displayName: staff.profile.displayName,
       roles: staff.roles,
     };

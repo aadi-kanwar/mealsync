@@ -1,12 +1,14 @@
 "use client";
 
 import { ConvexAuthNextjsProvider } from "@convex-dev/auth/nextjs";
+import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
+import { ConvexReactClient, useConvexAuth } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { api } from "@convex/_generated/api";
 import { Banner } from "@/components/ui/banner";
+import { useQuery } from "@/lib/convex";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
@@ -23,8 +25,11 @@ export function ConvexClientProvider({ children }: { children: React.ReactNode }
   }
   return (
     <ConvexAuthNextjsProvider client={convex}>
-      <EndRevokedSession />
-      {children}
+      {/* Screens' live data stays subscribed for 5 minutes after leaving them, so going back is instant. */}
+      <ConvexQueryCacheProvider expiration={5 * 60_000}>
+        <EndRevokedSession />
+        {children}
+      </ConvexQueryCacheProvider>
     </ConvexAuthNextjsProvider>
   );
 }
@@ -36,7 +41,7 @@ export function ConvexClientProvider({ children }: { children: React.ReactNode }
  */
 function EndRevokedSession() {
   const { isAuthenticated } = useConvexAuth();
-  const me = useQuery(api.users.me);
+  const me = useQuery(api.users.me, {});
   const { signOut } = useAuthActions();
   const router = useRouter();
   const revoked = isAuthenticated && me === null;

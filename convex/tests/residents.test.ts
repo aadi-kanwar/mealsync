@@ -32,10 +32,11 @@ async function setup() {
   return { t, warden };
 }
 
-function signIn(t: T, flow: "signIn" | "signUp", phone: string, password: string) {
-  return t.action(api.auth.signIn, {
+async function signIn(t: T, flow: "signIn" | "signUp", phone: string, password: string) {
+  const propertyId = await t.run(async (ctx) => (await ctx.db.query("properties").first())!._id);
+  return await t.action(api.auth.signIn, {
     provider: "phone-password",
-    params: { flow, phone, password, displayName: "Asha Rao", roomNumber: "204" },
+    params: { flow, phone, password, displayName: "Asha Rao", roomNumber: "204", propertyId },
   });
 }
 

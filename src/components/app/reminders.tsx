@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { Bell, BellOff } from "lucide-react";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { api } from "@convex/_generated/api";
@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
+import { useQuery } from "@/lib/convex";
 
 type Support = "checking" | "unsupported" | "needs-home-screen" | "supported";
 

@@ -20,7 +20,7 @@ export type NavItem = {
   icon: LucideIcon;
   /** Roles that see this item. Admin sees everything. */
   roles: readonly StaffRole[];
-  /** Shown in the phone's bottom bar (default true); the sidebar shows everything. */
+  /** In the phone's bottom bar (default true), or under its "More" tab (false). The sidebar shows everything. */
   mobile?: boolean;
 };
 

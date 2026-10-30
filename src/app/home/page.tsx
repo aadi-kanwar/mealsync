@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { AlarmClock, Clock, Leaf } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
@@ -14,6 +13,7 @@ import { LoadingState } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/states";
 import { formatDay, formatDuration, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@/lib/convex";
 
 /**
  * Resident home: the next day whose meals can still be chosen. Meals close

@@ -22,7 +22,7 @@ describe("signed-out visitors", () => {
     const { t } = await setup();
     expect(await t.query(api.users.me, {})).toBeNull();
     expect(
-      await errorCode(t.mutation(api.users.completeProfile, { displayName: "X Y", roomNumber: "1" })),
+      await errorCode(t.mutation(api.users.completeProfile, { displayName: "X Y", roomNumber: "1", propertyId: "x" })),
     ).toBe("NOT_SIGNED_IN");
     expect(await errorCode(t.query(api.residents.listPending, {}))).toBe("NOT_SIGNED_IN");
     expect(await errorCode(t.query(api.staff.list, {}))).toBe("NOT_SIGNED_IN");
@@ -31,11 +31,12 @@ describe("signed-out visitors", () => {
 
 describe("completing a profile (open sign-up)", () => {
   test("creates a PENDING resident using the phone from the login, and is audited", async () => {
-    const { t } = await setup();
+    const { t, property } = await setup();
     const login = await createLogin(t, "+919811112222");
     await login.as.mutation(api.users.completeProfile, {
       displayName: "  Asha Rao ",
       roomNumber: "204",
+      propertyId: property._id,
     });
     const me = await login.as.query(api.users.me, {});
     expect(me).toMatchObject({
@@ -49,28 +50,32 @@ describe("completing a profile (open sign-up)", () => {
   });
 
   test("can't be done twice and rejects bad input", async () => {
-    const { t } = await setup();
+    const { t, property } = await setup();
     const login = await createLogin(t);
     expect(
-      await errorCode(login.as.mutation(api.users.completeProfile, { displayName: "A", roomNumber: "1" })),
+      await errorCode(login.as.mutation(api.users.completeProfile, { displayName: "A", roomNumber: "1", propertyId: property._id })),
     ).toBe("INVALID_INPUT");
     expect(
       await errorCode(
-        login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "<script>" }),
+        login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "<script>", propertyId: property._id }),
       ),
     ).toBe("INVALID_INPUT");
-    await login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "1" });
+    await login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "1", propertyId: property._id });
     expect(
-      await errorCode(login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "2" })),
+      await errorCode(login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "2", propertyId: property._id })),
     ).toBe("PROFILE_EXISTS");
   });
 
-  test("fails clearly when the PG hasn't been set up", async () => {
-    const t = await setupTest();
+  test("needs a real, open PG", async () => {
+    const { t, property } = await setup();
     const login = await createLogin(t);
     expect(
-      await errorCode(login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "1" })),
-    ).toBe("NOT_SET_UP");
+      await errorCode(login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "1", propertyId: "nope" })),
+    ).toBe("INVALID_INPUT");
+    await t.run((ctx) => ctx.db.patch(property._id, { status: "inactive" }));
+    expect(
+      await errorCode(login.as.mutation(api.users.completeProfile, { displayName: "Asha", roomNumber: "1", propertyId: property._id })),
+    ).toBe("INVALID_INPUT");
   });
 
   test("`me` only ever describes the caller", async () => {
@@ -312,7 +317,7 @@ describe("staff management (Admin)", () => {
     const { t } = await setup();
     const admin = await createStaff(t, "admin");
     const person = await createSignedUp(t, "New Warden", "W");
-    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden" });
+    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden", propertyIds: [admin.propertyId] });
 
     const me = await person.as.query(api.users.me, {});
     expect(me?.staffRoles).toEqual(["warden"]);
@@ -322,7 +327,7 @@ describe("staff management (Admin)", () => {
     const actions = (await t.run((ctx) => ctx.db.query("auditLogs").collect())).map((a) => a.action);
     expect(actions).toEqual(expect.arrayContaining(["staff.role_granted", "resident.withdrawn_for_staff"]));
     expect(
-      await errorCode(admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden" })),
+      await errorCode(admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden", propertyIds: [admin.propertyId] })),
     ).toBe("CONFLICT");
   });
 
@@ -330,7 +335,7 @@ describe("staff management (Admin)", () => {
     const { t } = await setup();
     const admin = await createStaff(t, "admin");
     const person = await createActiveResident(t);
-    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden" });
+    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden", propertyIds: [admin.propertyId] });
     expect((await person.as.query(api.users.me, {}))?.resident?.status).toBe("active");
   });
 
@@ -349,17 +354,15 @@ describe("staff management (Admin)", () => {
     const { t } = await setup();
     const admin = await createStaff(t, "admin");
     const person = await createSignedUp(t);
-    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden" });
+    await admin.as.mutation(api.staff.grantRole, { phone: person.phone, role: "warden", propertyIds: [admin.propertyId] });
     const staff = await admin.as.query(api.staff.list, {});
     const wardenRow = staff.find((s) => s.role === "warden")!;
     const adminRow = staff.find((s) => s.role === "admin")!;
     expect(adminRow.isMe).toBe(true);
 
-    await admin.as.mutation(api.staff.revokeRole, { staffRoleId: wardenRow.staffRoleId });
+    await admin.as.mutation(api.staff.remove, { userId: wardenRow.userId });
     expect((await person.as.query(api.users.me, {}))?.staffRoles).toEqual([]);
-    expect(await errorCode(admin.as.mutation(api.staff.revokeRole, { staffRoleId: adminRow.staffRoleId }))).toBe(
-      "CONFLICT",
-    );
+    expect(await errorCode(admin.as.mutation(api.staff.remove, { userId: adminRow.userId }))).toBe("CONFLICT");
     const actions = (await t.run((ctx) => ctx.db.query("auditLogs").collect())).map((a) => a.action);
     expect(actions).toContain("staff.role_revoked");
   });
