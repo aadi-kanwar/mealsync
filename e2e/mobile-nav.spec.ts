@@ -33,11 +33,23 @@ test("the bottom bar shows where you are; More holds Staff, Menu, Reports, Setti
   await expect(page.getByRole("heading", { name: "Staff", level: 1 })).toBeVisible();
   await expect(bar.getByRole("button", { name: "More" })).toHaveAttribute("aria-current", "page");
 
-  // The bar stays at the bottom of the screen, and nothing scrolls sideways.
+  // Only the content scrolls: the page itself never does, so the bar never
+  // moves, and nothing scrolls sideways.
+  const before = (await bar.boundingBox())!;
+  await page.mouse.move(100, 300);
   await page.mouse.wheel(0, 4000);
+  await page.mouse.wheel(0, -300);
   const box = (await bar.boundingBox())!;
+  expect(box.y).toBe(before.y);
   expect(Math.round(box.y + box.height)).toBe(page.viewportSize()!.height);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(
+    await page.evaluate(() => ({
+      x: window.scrollX,
+      y: window.scrollY,
+      wide: document.documentElement.scrollWidth > window.innerWidth,
+      tall: document.documentElement.scrollHeight > window.innerHeight,
+    })),
+  ).toEqual({ x: 0, y: 0, wide: false, tall: false });
 
   await bar.getByRole("button", { name: "More" }).click();
   await page.getByRole("dialog", { name: "More" }).getByRole("button", { name: "Log out" }).click();

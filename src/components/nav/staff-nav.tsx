@@ -30,7 +30,7 @@ export function StaffSidebar({
       aria-label={preview ? "Staff (preview)" : "Staff"}
       className={cn(
         "w-60 shrink-0 flex-col justify-between border-r border-border bg-surface p-3 print:hidden",
-        preview ? "flex" : "sticky top-14 hidden h-[calc(100dvh-3.5rem)] self-start overflow-y-auto md:flex",
+        preview ? "flex" : "hidden overflow-y-auto md:flex",
       )}
     >
       <ul className="flex flex-col gap-1">
@@ -81,8 +81,8 @@ function TabFace({ icon, label, active }: { icon: NavItem["icon"]; label: string
 const tabClass = "flex min-h-16 w-full flex-col items-center justify-center gap-1 px-1 text-xs font-medium";
 
 /**
- * Mobile: a bottom bar, fixed to the bottom of the screen. Hidden from `md`
- * up unless `everywhere` (resident screens have no sidebar). `more` holds the
+ * Mobile: the bottom bar (AppFrame keeps it at the bottom of the screen).
+ * Hidden from `md` up unless `everywhere` (resident screens have no sidebar). `more` holds the
  * extra screens and Log out, behind a "More" tab.
  */
 export function BottomNav({
@@ -104,7 +104,7 @@ export function BottomNav({
       aria-label={preview ? "Main (preview)" : "Main"}
       className={cn(
         "border-t border-border bg-surface print:hidden",
-        !preview && "fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)]",
+        !preview && "pb-[env(safe-area-inset-bottom)]",
         !preview && !everywhere && "md:hidden",
       )}
     >

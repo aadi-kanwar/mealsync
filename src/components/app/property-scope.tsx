@@ -84,7 +84,7 @@ export function PropertyPicker({ className }: { className?: string }) {
       </label>
       <NativeSelect
         id="property-picker"
-        className="h-10 min-h-10 max-w-56 truncate rounded-full py-0 pl-4 text-sm font-medium"
+        className="h-10 min-h-10 max-w-48 truncate rounded-full py-0 pl-4 text-base font-medium sm:max-w-56 md:text-sm"
         value={current?.propertyId ?? ""}
         onChange={(e) => choose(e.target.value === "" ? null : (e.target.value as Id<"properties">))}
       >

@@ -195,7 +195,7 @@ export function SaveBar({ drafts, today, timezone }: { drafts: MealDrafts; today
           ? `Last saved ${formatWhen(drafts.lastSaved, today, timezone)}`
           : "Nothing saved yet";
   return (
-    <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 -mx-4 mt-auto flex flex-col gap-3 border-t border-border bg-surface px-4 py-3">
+    <div className="sticky bottom-0 z-20 -mx-4 -mb-6 mt-auto flex flex-col gap-3 border-t border-border bg-surface px-4 py-3">
       {drafts.error ? (
         <Banner tone="danger" title="Not saved">
           {drafts.error} Your last saved choices haven&apos;t changed.

@@ -27,7 +27,7 @@ export function OfflineBanner() {
   const disconnected = graceOver && !connection.isWebSocketConnected;
   if (online && !disconnected) return null;
   return (
-    <div className="sticky top-0 z-50 p-2">
+    <div className="fixed inset-x-0 top-0 z-50 p-2">
       <Banner tone="warning" title="You’re offline">
         Changes can&apos;t be saved until the connection is back. We&apos;ll reconnect automatically.
       </Banner>

@@ -206,7 +206,7 @@ function MenuEditor({ data, propertyId, propertyName }: { data: MenuData; proper
         ))}
       </div>
 
-      <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 -mx-4 flex flex-col gap-3 border-t border-border bg-surface px-4 py-3 md:bottom-0 md:-mx-8 md:px-8">
+      <div className="sticky bottom-0 z-20 -mx-4 -mb-10 flex flex-col gap-3 border-t border-border bg-surface px-4 py-3 md:-mx-8 md:px-8">
         {error ? <Banner tone="danger" title="Not saved">{error}</Banner> : null}
         <div className="flex items-center gap-3">
           <p
