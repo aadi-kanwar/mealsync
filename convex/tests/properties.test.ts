@@ -202,3 +202,37 @@ describe("several properties", () => {
     ]);
   });
 });
+
+test("each PG has its own menu, and residents see their own PG's dishes", async () => {
+  const { t, first, second } = await twoProperties();
+  const admin = await createStaff(t, "admin");
+  const a = await createActiveResident(t, "Asha Rao", "1", first._id);
+  const b = await createActiveResident(t, "Bina Das", "2", second._id);
+  // Sunday 25 Oct: weekday 0.
+  for (const [property, dish] of [
+    [first, "Poha"],
+    [second, "Idli"],
+  ] as const) {
+    await admin.as.mutation(api.menus.save, {
+      propertyId: property._id,
+      label: "A",
+      entries: [{ weekday: 0, mealType: "breakfast", items: dish }],
+    });
+    await admin.as.mutation(api.menus.setThisWeek, { propertyId: property._id, label: "A" });
+  }
+  const firstMenu = await admin.as.query(api.menus.get, { propertyId: first._id });
+  const secondMenu = await admin.as.query(api.menus.get, { propertyId: second._id });
+  expect(firstMenu.menus[0].entries).toEqual([{ weekday: 0, mealType: "breakfast", items: "Poha" }]);
+  expect(secondMenu.menus[0].entries).toEqual([{ weekday: 0, mealType: "breakfast", items: "Idli" }]);
+
+  const dishFor = async (as: typeof a.as) =>
+    (await as.query(api.meals.myDays, { startDate: "2026-10-25", days: 1 })).days[0].meals.find(
+      (m) => m.mealType === "breakfast",
+    )?.menu;
+  expect(await dishFor(a.as)).toBe("Poha");
+  expect(await dishFor(b.as)).toBe("Idli");
+
+  // A Warden of one PG can't touch another PG's menu (menus are Admin-only anyway).
+  const warden = await createStaff(t, "warden", "Meena Warden", [first._id]);
+  expect(await errorCode(warden.as.query(api.menus.get, { propertyId: second._id }))).toBe("FORBIDDEN");
+});

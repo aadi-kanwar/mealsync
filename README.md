@@ -109,10 +109,8 @@ cooking targets, buffers, actuals or kitchen reports.
   - *Menu* (Admin only): fill in the two weekly menus (Menu A and Menu B:
     Monday–Sunday, four meals a day) and choose which one runs **this
     week**. After that they alternate by themselves every Monday, and
-    residents see each meal's dishes. **Use Excel**: **Download** gives both
-    menus as an Excel file (sheets "Menu A" and "Menu B"; days down the
-    side, meals across the top), already filled with what's saved; fill it
-    in and **Upload** it, check the menus that fill in, then **Save**.
+    residents see each meal's dishes. Each property has its own two menus
+    (choose the property first).
   - *Reports* (Admin only): all residents, or **one resident** (current or
     moved out); choose dates (up to 100 days; "This month",
     "Last month", "Last 7 days" shortcuts), see totals per meal, and
