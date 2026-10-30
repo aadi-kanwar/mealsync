@@ -52,11 +52,26 @@ export async function createLogin(t: T, phone = nextPhone()) {
   return { userId, phone, as };
 }
 
-/** A signed-up person who has completed their profile (pending resident). */
-export async function createSignedUp(t: T, name = "Test Person", room = "101") {
+/** Another property in the first organisation. */
+export async function addProperty(t: T, name: string) {
+  return await t.run(async (ctx) => {
+    const { createProperty } = await import("../lib/property");
+    const first = (await ctx.db.query("properties").first())!;
+    return await createProperty(ctx, { organizationId: first.organizationId, name, createdBy: undefined });
+  });
+}
+
+const firstPropertyId = (t: T) => t.run(async (ctx) => (await ctx.db.query("properties").first())!._id);
+
+/** A signed-up person who has completed their profile (pending resident), at `propertyId` (default: the first property). */
+export async function createSignedUp(t: T, name = "Test Person", room = "101", propertyId?: Id<"properties">) {
   const login = await createLogin(t);
   const { api } = await import("../_generated/api");
-  await login.as.mutation(api.users.completeProfile, { displayName: name, roomNumber: room });
+  await login.as.mutation(api.users.completeProfile, {
+    displayName: name,
+    roomNumber: room,
+    propertyId: propertyId ?? (await firstPropertyId(t)),
+  });
   const residentId = await t.run(async (ctx) => {
     const r = await ctx.db
       .query("residents")
@@ -67,15 +82,16 @@ export async function createSignedUp(t: T, name = "Test Person", room = "101") {
   return { ...login, residentId };
 }
 
-export async function createActiveResident(t: T, name = "Active Resident", room = "201") {
-  const person = await createSignedUp(t, name, room);
+export async function createActiveResident(t: T, name = "Active Resident", room = "201", propertyId?: Id<"properties">) {
+  const person = await createSignedUp(t, name, room, propertyId);
   await t.run(async (ctx) => {
     await ctx.db.patch(person.residentId, { status: "active", validFrom: "2026-01-01" });
   });
   return person;
 }
 
-export async function createStaff(t: T, role: StaffRole, name = `Staff ${role}`) {
+/** A staff member. Admins cover the whole organisation; a Warden gets `propertyIds` (default: the first property). */
+export async function createStaff(t: T, role: StaffRole, name = `Staff ${role}`, propertyIds?: Id<"properties">[]) {
   const login = await createLogin(t);
   const propertyId = await t.run(async (ctx) => {
     const property = (await ctx.db.query("properties").first())!;
@@ -86,14 +102,16 @@ export async function createStaff(t: T, role: StaffRole, name = `Staff ${role}`)
       status: "active",
       createdAt: Date.now(),
     });
-    await ctx.db.insert("staffRoles", {
-      organizationId: property.organizationId,
-      propertyId: property._id,
-      userId: login.userId,
-      role,
-      status: "active",
-      grantedAt: Date.now(),
-    });
+    for (const propertyId of role === "admin" ? [undefined] : (propertyIds ?? [property._id])) {
+      await ctx.db.insert("staffRoles", {
+        organizationId: property.organizationId,
+        propertyId,
+        userId: login.userId,
+        role,
+        status: "active",
+        grantedAt: Date.now(),
+      });
+    }
     return property._id;
   });
   return { ...login, propertyId: propertyId as Id<"properties"> };

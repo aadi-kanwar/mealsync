@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as authLimits from "../authLimits.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
+import type * as directory from "../directory.js";
 import type * as http from "../http.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_csv from "../lib/csv.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   authLimits: typeof authLimits;
   crons: typeof crons;
   dashboard: typeof dashboard;
+  directory: typeof directory;
   http: typeof http;
   "lib/audit": typeof lib_audit;
   "lib/csv": typeof lib_csv;

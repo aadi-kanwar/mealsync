@@ -33,7 +33,7 @@ const STEPS = [
 
 function Landing() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-7 px-4 py-8">
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-4 py-6">
       <Brand size="lg" />
       <div className="flex flex-col gap-3">
         <Eyebrow>Before you skip a meal</Eyebrow>

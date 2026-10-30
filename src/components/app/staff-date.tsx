@@ -1,18 +1,18 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@convex/_generated/api";
-import { addDays, DEFAULT_TIMEZONE } from "@convex/lib/time";
+import { addDays } from "@convex/lib/time";
 import { Banner } from "@/components/ui/banner";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { friendlyError } from "@/lib/errors";
 import { formatDay, todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useMe } from "./session";
+import { usePropertyScope } from "./property-scope";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -22,11 +22,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * timezone. Pages using this must sit inside a <Suspense> boundary.
  */
 export function useStaffDate() {
-  const me = useMe();
-  const timezone = me?.property?.timezone ?? DEFAULT_TIMEZONE;
+  const { timezone } = usePropertyScope();
   const today = todayIn(timezone);
   const params = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const fromUrl = params.get("date");
   const date = fromUrl !== null && DATE_RE.test(fromUrl) ? fromUrl : today;
@@ -35,7 +33,9 @@ export function useStaffDate() {
     if (next === today) query.delete("date");
     else query.set("date", next);
     const search = query.toString();
-    router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false });
+    // Only the address changes: no trip to the web server (router.replace
+    // would fetch the page again, which made switching dates slow).
+    window.history.replaceState(null, "", search ? `${pathname}?${search}` : pathname);
   };
   return { date, setDate, today, timezone };
 }
@@ -121,11 +121,13 @@ function OtherDate({ date, picked, onChange }: { date: string; picked: boolean; 
  */
 export function EnsureMeals() {
   const ensure = useMutation(api.meals.ensureUpcomingForStaff);
+  const { arg } = usePropertyScope();
+  const propertyId = arg.propertyId;
   const [error, setError] = useState<string | null>(null);
-  const run = () => ensure().catch((e: unknown) => setError(friendlyError(e)));
+  const run = () => ensure({ propertyId }).catch((e: unknown) => setError(friendlyError(e)));
   useEffect(() => {
-    void ensure().catch((e: unknown) => setError(friendlyError(e)));
-  }, [ensure]);
+    void ensure({ propertyId }).catch((e: unknown) => setError(friendlyError(e)));
+  }, [ensure, propertyId]);
   if (error === null) return null;
   return (
     <Banner

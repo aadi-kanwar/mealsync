@@ -5,7 +5,7 @@
  */
 import { v } from "convex/values";
 import { appError } from "./lib/errors";
-import { getCurrentProperty, internalMutation } from "./lib/functions";
+import { internalMutation } from "./lib/functions";
 import { normalizePhone } from "./lib/inputRules";
 import { ensureProperty } from "./lib/property";
 import { grantStaffRole } from "./lib/staffRoles";
@@ -28,21 +28,26 @@ export const createProperty = internalMutation({
 });
 
 /**
- * Step 2: make the owner the first Admin. The owner must first sign up in
- * the app and fill in their name and room. Refuses to run once any Admin
- * exists, so it can't be used to take over the app later.
+ * Step 2: make the owner the first Admin of the organisation created in
+ * step 1. The owner must first sign up in the app. Refuses to run once that
+ * organisation has an Admin, so it can't be used to take over the app later.
+ * (Admins who sign up through "Create an organisation" don't need this.)
  */
 export const makeFirstAdmin = internalMutation({
   args: { phone: v.string() },
   handler: async (ctx, args) => {
-    const property = await getCurrentProperty(ctx);
-    const existingAdmin = await ctx.db
-      .query("staffRoles")
-      .withIndex("by_property_role_status", (q) =>
-        q.eq("propertyId", property._id).eq("role", "admin").eq("status", "active"),
-      )
+    const property = await ctx.db
+      .query("properties")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
       .first();
-    if (existingAdmin !== null) {
+    if (property === null) throw appError("NOT_SET_UP");
+    const existingAdmin = (
+      await ctx.db
+        .query("staffRoles")
+        .withIndex("by_org_status", (q) => q.eq("organizationId", property.organizationId).eq("status", "active"))
+        .collect()
+    ).find((r) => r.role === "admin");
+    if (existingAdmin !== undefined) {
       throw appError(
         "CONFLICT",
         "An Admin already exists. Further staff must be added by an Admin inside the app.",
@@ -61,7 +66,7 @@ export const makeFirstAdmin = internalMutation({
       );
     }
     await grantStaffRole(ctx, {
-      property,
+      organizationId: property.organizationId,
       targetUserId: profile.authUserId,
       role: "admin",
       grantedBy: undefined,

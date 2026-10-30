@@ -29,6 +29,8 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   await signIn(admin, ADMIN_PHONE);
   await expect(admin).toHaveURL(/\/staff$/);
   await admin.goto("/staff/menu");
+  // The menu is set per property: choose the residents' one.
+  await admin.getByRole("button", { name: "TEST PG (development)" }).click();
   for (const label of ["A", "B"]) {
     await admin.getByRole("tab", { name: new RegExp(`^Menu ${label}`) }).click();
     for (const weekday of weekdays) await admin.getByLabel(`Menu ${label}, ${weekday}, Lunch`).fill(dish);
@@ -50,3 +52,4 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   await expect(resident.getByText("12:00 – 2:00 PM")).toBeVisible();
   await context.close();
 });
+

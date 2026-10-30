@@ -25,7 +25,17 @@ test("the Admin's settings are in sections; meal times, deadline and reminders c
   await signIn(page, ADMIN_PHONE);
   await page.goto("/staff/settings");
   const sections = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(page.getByRole("heading", { name: "PG details" })).toBeVisible();
+  // Organisation first: its name and every property.
+  await expect(page.getByRole("heading", { name: "Organisation", level: 2 })).toBeVisible();
+  const properties = page.getByRole("list", { name: "Properties" });
+  await expect(properties).toContainText("TEST PG (development)");
+  await expect(properties).toContainText("TEST PG 2 (development)");
+
+  // The rest is per property: asks for one while "All properties" is chosen.
+  await sections.getByRole("button", { name: "PG details" }).click();
+  await expect(page.getByRole("heading", { name: "Choose a property" })).toBeVisible();
+  await page.getByLabel("Property", { exact: true }).selectOption({ label: "TEST PG (development)" });
+  await expect(page.getByLabel("PG name")).toHaveValue("TEST PG (development)");
 
   await sections.getByRole("button", { name: "Meals & deadline" }).click();
   await expect(page).toHaveURL(/section=meals/);
@@ -81,20 +91,22 @@ test("the Admin previews and downloads a report for chosen dates", async ({ page
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download CSV" }).click();
   const file = await download;
-  expect(file.suggestedFilename()).toMatch(/^dine-report-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}\.csv$/);
+  // All properties: one file, a row per PG per meal per day.
+  expect(file.suggestedFilename()).toMatch(/^dine-all-properties-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}\.csv$/);
   const csv = await readFile((await file.path())!, "utf8");
-  expect(csv).toContain("Date,Day,Meal,Status,Residents counted,Yes,No,Not answered,Answered");
+  expect(csv).toContain("Property,Date,Day,Meal,Status,Residents counted,Yes,No,Not answered,Answered");
+  expect(csv).toContain("TEST PG 2 (development),");
   expect(csv.trim().split("\r\n").length).toBeGreaterThan(1);
 
   // One resident's report.
-  await page.getByLabel("Report for").selectOption({ label: "TEST Resident A · Room 101" });
+  await page.getByLabel("Report for").selectOption({ label: "TEST Resident A · Room 101 · TEST PG (development)" });
   await expect(page.getByRole("heading", { name: /^TEST Resident A ·/ })).toBeVisible();
   const own = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download CSV" }).click();
   const ownFile = await own;
   expect(ownFile.suggestedFilename()).toMatch(/^dine-test-resident-a-/);
   const ownCsv = await readFile((await ownFile.path())!, "utf8");
-  expect(ownCsv).toContain("Resident,Room,Date,Day,Meal,Choice,Last saved");
+  expect(ownCsv).toContain("Resident,Room,Property,Date,Day,Meal,Choice,Last saved");
   expect(ownCsv).toContain("TEST Resident A,101,");
 
   await page.getByLabel("From").fill("2026-01-01");

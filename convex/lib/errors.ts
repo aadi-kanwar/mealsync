@@ -20,7 +20,8 @@ export type AppErrorCode =
   | "INVALID_PHONE"
   | "WEAK_PASSWORD"
   | "CUTOFF_PASSED"
-  | "NOT_ELIGIBLE";
+  | "NOT_ELIGIBLE"
+  | "CHOOSE_PROPERTY";
 
 export type AppErrorData = { code: AppErrorCode; message: string };
 
@@ -41,6 +42,7 @@ export const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   WEAK_PASSWORD: "Please choose a stronger password.",
   CUTOFF_PASSED: "The time to choose this meal has passed. Contact the Warden to change it.",
   NOT_ELIGIBLE: "You aren't counted for meals on that day.",
+  CHOOSE_PROPERTY: "Choose a property first.",
 };
 
 export function appError(code: AppErrorCode, message?: string): ConvexError<AppErrorData> {

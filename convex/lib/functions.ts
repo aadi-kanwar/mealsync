@@ -9,8 +9,13 @@
  *   viewerQuery          - signed in or not; ctx.viewer is null when signed out
  *   signedInQuery/Mutation  - any signed-in account (even without a profile)
  *   staffQuery/Mutation  - an active staff member with one of `roles`
- *                          (an Admin is always allowed: Admins can do everything)
- *   residentQuery/Mutation - an approved, active resident of the property
+ *                          (an Admin is always allowed: Admins can do everything).
+ *                          Takes an optional `propertyId` argument: the property
+ *                          the screen is showing. ctx.staff.properties is every
+ *                          property the caller may see; ctx.staff.property is the
+ *                          chosen one (or their only one), else null = "all".
+ *   residentQuery/Mutation - an approved, active resident (ctx.resident.property
+ *                          is the property they live in)
  *   signedInAction, staffAction - the same checks for actions (needed for
  *                          password changes), done by an internal query
  *                          before the action's own code runs
@@ -31,6 +36,7 @@ import {
   customQuery,
 } from "convex-helpers/server/customFunctions";
 import { wrapDatabaseWriter } from "convex-helpers/server/rowLevelSecurity";
+import { v } from "convex/values";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import {
   action as rawAction,
@@ -79,20 +85,6 @@ export async function requireUser(ctx: ReadCtx): Promise<SignedInViewer> {
   return viewer;
 }
 
-/** The single active property (V1 runs one PG). */
-export async function getCurrentProperty(ctx: DbCtx): Promise<Doc<"properties">> {
-  const properties = await ctx.db
-    .query("properties")
-    .withIndex("by_status", (q) => q.eq("status", "active"))
-    .take(2);
-  if (properties.length === 0) throw appError("NOT_SET_UP");
-  if (properties.length > 1) {
-    // V1 supports exactly one property. Fail loudly instead of guessing.
-    throw new Error("More than one active property exists; V1 supports only one.");
-  }
-  return properties[0];
-}
-
 export async function getProfile(
   ctx: DbCtx,
   userId: Id<"users">,
@@ -103,70 +95,156 @@ export async function getProfile(
     .unique();
 }
 
-export type ProfiledViewer = SignedInViewer & {
-  profile: Doc<"userProfiles">;
-  property: Doc<"properties">;
-};
+export type ProfiledViewer = SignedInViewer & { profile: Doc<"userProfiles"> };
 
 export async function requireProfile(ctx: ReadCtx): Promise<ProfiledViewer> {
   const viewer = await requireUser(ctx);
   const profile = await getProfile(ctx, viewer.userId);
   if (profile === null) throw appError("PROFILE_REQUIRED");
   if (profile.status !== "active") throw appError("ACCOUNT_DISABLED");
-  const property = await getCurrentProperty(ctx);
-  return { ...viewer, profile, property };
+  return { ...viewer, profile };
 }
 
-/** Active staff roles the user holds at the property. */
+const byName = (a: Doc<"properties">, b: Doc<"properties">) => a.name.localeCompare(b.name);
+
+/** Active properties of an organisation, by name. */
+export async function organizationProperties(
+  ctx: DbCtx,
+  organizationId: Id<"organizations">,
+): Promise<Doc<"properties">[]> {
+  const rows = await ctx.db
+    .query("properties")
+    .withIndex("by_org_status", (q) => q.eq("organizationId", organizationId).eq("status", "active"))
+    .collect();
+  return rows.sort(byName);
+}
+
+/**
+ * What a staff member can see. A person is staff of at most one
+ * organisation. An Admin sees every property of it; a Warden only the
+ * properties they're assigned to.
+ */
+export type StaffAccess = {
+  organization: Doc<"organizations">;
+  roles: StaffRole[];
+  isAdmin: boolean;
+  properties: Doc<"properties">[];
+};
+
+export async function getStaffAccess(ctx: DbCtx, userId: Id<"users">): Promise<StaffAccess | null> {
+  const rows = await ctx.db
+    .query("staffRoles")
+    .withIndex("by_user_status", (q) => q.eq("userId", userId).eq("status", "active"))
+    .collect();
+  if (rows.length === 0) return null;
+  const organization = await ctx.db.get(rows[0].organizationId);
+  if (organization === null || organization.status !== "active") return null;
+  const mine = rows.filter((r) => r.organizationId === organization._id);
+  const isAdmin = mine.some((r) => r.role === "admin");
+  const all = await organizationProperties(ctx, organization._id);
+  // Admin rows are organisation-wide (older ones may still carry a propertyId; it's ignored).
+  const assigned = new Set(mine.filter((r) => r.role === "warden").map((r) => r.propertyId));
+  return {
+    organization,
+    roles: [...new Set(mine.map((r) => r.role))],
+    isAdmin,
+    properties: isAdmin ? all : all.filter((p) => assigned.has(p._id)),
+  };
+}
+
+/** Active staff roles the user holds for one property (an Admin's apply to every property of their organisation). */
 export async function getStaffRoles(
   ctx: DbCtx,
   propertyId: Id<"properties">,
   userId: Id<"users">,
 ): Promise<StaffRole[]> {
-  const rows = await ctx.db
-    .query("staffRoles")
-    .withIndex("by_property_user", (q) => q.eq("propertyId", propertyId).eq("userId", userId))
-    .collect();
-  return [...new Set(rows.filter((r) => r.status === "active").map((r) => r.role))];
+  const access = await getStaffAccess(ctx, userId);
+  if (access === null || !access.properties.some((p) => p._id === propertyId)) return [];
+  return access.roles;
 }
 
-export type StaffViewer = ProfiledViewer & { roles: StaffRole[] };
+export type StaffViewer = ProfiledViewer &
+  StaffAccess & {
+    /** The property chosen on screen, or the staff member's only property; null means all of `properties`. */
+    property: Doc<"properties"> | null;
+  };
 
 /**
  * Requires an active staff member holding one of `allowed`.
  * Admins always pass: per the role table, an Admin can do everything.
+ * `propertyId`, when given, must be one of the caller's properties.
  */
 export async function requireRole(
   ctx: ReadCtx,
   allowed: readonly StaffRole[],
+  propertyId?: Id<"properties">,
 ): Promise<StaffViewer> {
   const viewer = await requireProfile(ctx);
-  const roles = await getStaffRoles(ctx, viewer.property._id, viewer.userId);
-  const permitted = roles.includes("admin") || roles.some((role) => allowed.includes(role));
+  const access = await getStaffAccess(ctx, viewer.userId);
+  if (access === null) throw appError("FORBIDDEN");
+  const permitted = access.isAdmin || access.roles.some((role) => allowed.includes(role));
   if (!permitted) throw appError("FORBIDDEN");
-  return { ...viewer, roles };
+  let property: Doc<"properties"> | null = null;
+  if (propertyId !== undefined) {
+    property = access.properties.find((p) => p._id === propertyId) ?? null;
+    if (property === null) throw appError("FORBIDDEN");
+  } else if (access.properties.length === 1) {
+    property = access.properties[0];
+  }
+  return { ...viewer, ...access, property };
 }
 
-export async function getResidentRecord(
+/** The one property a screen is about. Throws when "all properties" is selected. */
+export function oneProperty(staff: Pick<StaffViewer, "property">): Doc<"properties"> {
+  if (staff.property === null) throw appError("CHOOSE_PROPERTY");
+  return staff.property;
+}
+
+/** The properties a screen covers: the chosen one, or all the caller's. */
+export function inScope(staff: Pick<StaffViewer, "property" | "properties">): Doc<"properties">[] {
+  if (staff.property) return [staff.property];
+  if (staff.properties.length === 0) throw appError("FORBIDDEN", "You aren't assigned to any property yet.");
+  return staff.properties;
+}
+
+/** Loads a resident the staff member may manage (one of their properties), else NOT_FOUND. */
+export async function loadManagedResident(
   ctx: DbCtx,
-  propertyId: Id<"properties">,
-  userId: Id<"users">,
-): Promise<Doc<"residents"> | null> {
-  return await ctx.db
-    .query("residents")
-    .withIndex("by_property_user", (q) => q.eq("propertyId", propertyId).eq("userId", userId))
-    .unique();
+  staff: Pick<StaffViewer, "properties">,
+  residentId: Id<"residents">,
+): Promise<{ resident: Doc<"residents">; property: Doc<"properties"> }> {
+  const resident = await ctx.db.get(residentId);
+  const property = resident && staff.properties.find((p) => p._id === resident.propertyId);
+  if (!resident || !property) throw appError("NOT_FOUND");
+  return { resident, property };
 }
 
-export type ResidentViewer = ProfiledViewer & { resident: Doc<"residents"> };
+const RESIDENT_ORDER = { active: 0, pending: 1, inactive: 2, rejected: 3 } as const;
+
+/**
+ * The person's resident record: the current one if any, else the latest
+ * sign-up. (One per sign-up; a person lives in one property at a time.)
+ */
+export async function getResidentRecord(ctx: DbCtx, userId: Id<"users">): Promise<Doc<"residents"> | null> {
+  const rows = await ctx.db
+    .query("residents")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  rows.sort((a, b) => RESIDENT_ORDER[a.status] - RESIDENT_ORDER[b.status] || b.createdAt - a.createdAt);
+  return rows[0] ?? null;
+}
+
+export type ResidentViewer = ProfiledViewer & { resident: Doc<"residents">; property: Doc<"properties"> };
 
 /** Requires an approved (active) resident. Pending, rejected and inactive residents are refused. */
 export async function requireActiveResident(ctx: ReadCtx): Promise<ResidentViewer> {
   const viewer = await requireProfile(ctx);
-  const resident = await getResidentRecord(ctx, viewer.property._id, viewer.userId);
+  const resident = await getResidentRecord(ctx, viewer.userId);
   if (resident === null) throw appError("FORBIDDEN");
   if (resident.status !== "active") throw appError("RESIDENT_NOT_ACTIVE");
-  return { ...viewer, resident };
+  const property = await ctx.db.get(resident.propertyId);
+  if (property === null || property.status !== "active") throw appError("RESIDENT_NOT_ACTIVE");
+  return { ...viewer, resident, property };
 }
 
 // ---------------------------------------------------------------------------
@@ -204,20 +282,24 @@ export const signedInMutation = customMutation(
 
 type RolesArg = { roles: readonly StaffRole[] };
 
-export const staffQuery = customQuery(
-  rawQuery,
-  customCtx(async (ctx, extra: RolesArg) => ({
-    staff: await requireRole(ctx, extra.roles),
-  })),
-);
+/** Every staff function takes this argument: the property the screen shows (omit for all / the only one). */
+const propertyArg = { propertyId: v.optional(v.id("properties")) };
 
-export const staffMutation = customMutation(
-  rawMutation,
-  customCtx(async (ctx, extra: RolesArg) => ({
-    staff: await requireRole(ctx, extra.roles),
-    db: guardedDb(ctx),
-  })),
-);
+export const staffQuery = customQuery(rawQuery, {
+  args: propertyArg,
+  input: async (ctx, args, extra: RolesArg) => ({
+    ctx: { staff: await requireRole(ctx, extra.roles, args.propertyId) },
+    args: {},
+  }),
+});
+
+export const staffMutation = customMutation(rawMutation, {
+  args: propertyArg,
+  input: async (ctx, args, extra: RolesArg) => ({
+    ctx: { staff: await requireRole(ctx, extra.roles, args.propertyId), db: guardedDb(ctx) },
+    args: {},
+  }),
+});
 
 export const residentQuery = customQuery(
   rawQuery,
@@ -239,7 +321,8 @@ export const residentMutation = customMutation(
 export type ActionViewer = { userId: Id<"users">; phone: string; mustChangePassword: boolean };
 export type ActionStaff = {
   userId: Id<"users">;
-  propertyId: Id<"properties">;
+  /** Every property the caller may see. */
+  propertyIds: Id<"properties">[];
   displayName: string;
   roles: StaffRole[];
 };

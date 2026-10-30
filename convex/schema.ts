@@ -22,8 +22,9 @@ import {
  * enforced inside the mutation that inserts the row (look up by index first,
  * then insert or update). Mutations are transactional, so this is safe.
  *
- * Every property-scoped table carries both `organizationId` and `propertyId`
- * so the app can grow to multiple PGs later without a rewrite.
+ * An organisation (one per Admin who creates it) has one or more properties
+ * (PGs). Every property-scoped table carries both `organizationId` and
+ * `propertyId`.
  */
 export default defineSchema({
   // Tables required by Convex Auth (users, sessions, accounts, ...).
@@ -33,6 +34,8 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(), // unique
     status: vRecordStatus,
+    createdBy: v.optional(v.id("users")), // the Admin who created it (absent for the first, set up by the owner)
+    createdAt: v.optional(v.number()),
   }).index("by_slug", ["slug"]),
 
   properties: defineTable({
@@ -59,7 +62,8 @@ export default defineSchema({
     reminderTimes: v.optional(v.array(v.string())),
   })
     .index("by_status", ["status"])
-    .index("by_org_slug", ["organizationId", "slug"]),
+    .index("by_org_slug", ["organizationId", "slug"])
+    .index("by_org_status", ["organizationId", "status"]),
 
   // One per signed-in person. Not property-scoped: a person may later belong
   // to several properties through `residents` and `staffRoles`.
@@ -75,11 +79,14 @@ export default defineSchema({
     .index("by_authUserId", ["authUserId"])
     .index("by_phone", ["phone"]),
 
+  // A person is staff of one organisation at most. Admin rows are
+  // organisation-wide (no propertyId; older rows may still carry one, which
+  // is ignored). Warden rows: one per property they're assigned to.
   staffRoles: defineTable({
     organizationId: v.id("organizations"),
-    propertyId: v.id("properties"),
+    propertyId: v.optional(v.id("properties")),
     userId: v.id("users"),
-    role: vStaffRole, // one active row per property + user + role
+    role: vStaffRole, // one active row per (property) + user + role
     status: vRecordStatus,
     grantedBy: v.optional(v.id("users")), // absent only for the first-admin setup step
     grantedAt: v.number(),
@@ -88,7 +95,9 @@ export default defineSchema({
   })
     .index("by_property_user", ["propertyId", "userId"])
     .index("by_property_role_status", ["propertyId", "role", "status"])
-    .index("by_property_status", ["propertyId", "status"]),
+    .index("by_property_status", ["propertyId", "status"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_org_status", ["organizationId", "status"]),
 
   residents: defineTable({
     organizationId: v.id("organizations"),
@@ -254,7 +263,7 @@ export default defineSchema({
   // Never store passwords, tokens or other secrets here.
   auditLogs: defineTable({
     organizationId: v.id("organizations"),
-    propertyId: v.id("properties"),
+    propertyId: v.optional(v.id("properties")), // absent for organisation-wide actions (staff, organisation name)
     actorUserId: v.optional(v.id("users")), // absent for setup steps run by the owner from the Convex dashboard
     action: v.string(),
     entityType: v.string(),

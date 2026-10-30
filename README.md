@@ -14,8 +14,14 @@ cooking targets, buffers, actuals or kitchen reports.
 
 ### What works today
 
-- **Create an account** with full name, room number, mobile number and a
-  password, all on one form. Name and room are asked only once. After that,
+- **Organisations and properties:** a PG owner creates their
+  **organisation** (one per Admin) with its first PG from **PG admin? Sign
+  in here → Create organisation**, then adds more PGs in **Settings →
+  Organisation**. Each PG has its own residents, meals, deadline, menu,
+  reminders and messages.
+- **Create an account** (residents): choose the **organisation** and **PG**
+  from dropdowns, then full name, room number, mobile number and a
+  password, all on one form. These are asked only once. After that,
   **sign in** needs just the mobile number and password.
 - **New residents wait for approval.** After signing up a person sees
   "Waiting for approval". They can't choose meals and aren't counted until a
@@ -65,11 +71,20 @@ cooking targets, buffers, actuals or kitchen reports.
   in Chrome on Android; on iPhone, Dine must first be added to the Home
   Screen (Share → Add to Home Screen).
 - **Staff screens** (`/staff`, Admin and Warden):
+  - *Choosing a property*: with more than one PG, the header has a picker:
+    **All properties** or one PG. Dashboard, Responses, Residents, New
+    sign-ups and Reports show the chosen PG or all of them; Menu and the
+    per-PG Settings ask for one. The choice is remembered on that device.
+  - *On a phone*: the bottom bar has Dashboard, Responses, Residents, New
+    sign-ups and **More** (Staff, Menu, Reports, Settings and **Log out**).
+    The current tab is highlighted.
   - *Dashboard* (the headcount): one compact row per meal, so the whole day
     fits on one screen. Pick a day (Yesterday / Today / Tomorrow, or the
     calendar button for any date). For each meal it shows how many residents said **Yes**, said
     **No**, and have **Not answered**, plus whether choices are still open.
-    Numbers update live. Also shows sign-ups waiting.
+    Numbers update live. Also shows sign-ups waiting. With **All
+    properties**, the counts are added up across PGs, and **By property**
+    below shows each PG's numbers.
   - *Responses*: every resident counted that day, one line each: name, room,
     when they last saved, and B L S D boxes (✓ Yes, ✕ No, – not answered),
     so the Warden can see who to remind. Phone numbers are never shown here.
@@ -87,20 +102,23 @@ cooking targets, buffers, actuals or kitchen reports.
       they must choose their own new password. Staff passwords can't be
       reset here.
   - *New sign-ups*: approve (confirm room and start date) or reject.
-  - *Staff* (Admin only): make someone an Admin or Warden, or take it away.
-    There must always be at least one Admin.
+  - *Staff* (Admin only): make someone an Admin (every PG) or a Warden of
+    the PGs you tick; change a Warden's PGs (**Properties**) or remove
+    someone. Wardens only ever see and manage the residents of their own
+    PGs. There must always be at least one Admin.
   - *Menu* (Admin only): fill in the two weekly menus (Menu A and Menu B:
     Monday–Sunday, four meals a day) and choose which one runs **this
     week**. After that they alternate by themselves every Monday, and
-    residents see each meal's dishes. On a phone, Menu and Staff are linked
-    from the top of the Dashboard.
+    residents see each meal's dishes. Each property has its own two menus
+    (choose the property first).
   - *Reports* (Admin only): all residents, or **one resident** (current or
     moved out); choose dates (up to 100 days; "This month",
     "Last month", "Last 7 days" shortcuts), see totals per meal, and
     **Download CSV**: one row per meal per day with residents counted, Yes,
     No, Not answered and % answered (for one resident: their choice for each
     meal and when they saved it). Opens in Excel or Google Sheets.
-  - *Settings* (Admin only), in sections: **PG details**, **Meals &
+  - *Settings* (Admin only), in sections: **Organisation** (its name; the
+    list of PGs; **Add a property**), then for the chosen PG: **PG details**, **Meals &
     deadline** (changes also apply to coming days still open; closed meals
     never change), **Phone reminders** (on/off, up to 4 times a day),
     **Resident messages**, and a link to the **Design system** (a reference
@@ -120,9 +138,9 @@ cooking targets, buffers, actuals or kitchen reports.
 
 | Role | Can do |
 |---|---|
-| Admin | Everything the Warden can, plus staff, menus, reports and settings (meal times, deadline, reminders, messages). |
-| Warden | Approve or reject new sign-ups; see the headcount and every resident's responses; edit a resident's name or room; mark residents as moved out; reset a resident's forgotten password. |
-| Resident | Sign up (name and room once), sign in, see their approval status; once approved, choose meals before the cutoff, turn on phone reminders, see their own history, change their password. |
+| Admin | Owns one organisation and sees every PG in it. Everything the Warden can, plus staff (and which PGs each Warden looks after), properties, menus, reports and settings (meal times, deadline, reminders, messages). |
+| Warden | For the PGs they're assigned to only: approve or reject new sign-ups; see the headcount and every resident's responses; edit a resident's name or room; mark residents as moved out; reset a resident's forgotten password. |
+| Resident | Sign up at their PG (organisation, PG, name and room once), sign in, see their approval status; once approved, choose meals before the cutoff, turn on phone reminders, see their own history, change their password. |
 
 ### First-time setup (one time only)
 
@@ -160,11 +178,13 @@ keys, latest backend code, the PG record). Steps (one time):
    `CONVEX_DEPLOY_KEY` = the key from step 1 (Production only). Optionally
    add `MEALSYNC_PG_NAME` and `MEALSYNC_ORGANIZATION_NAME` (they can also be
    changed later in Settings). Click **Deploy**.
-3. **First Admin:** open the live address, **Residents and wardens → Create
-   account** with your own number (room `OFFICE`). Then in the Convex
-   dashboard (still on **Production**): **Functions → setup →
-   makeFirstAdmin** → `{"phone": "+91XXXXXXXXXX"}` → **Run**. Refresh the
-   app: you're the Admin. Fill in **Menu** and **Settings**.
+3. **First Admin:** open the live address, **PG admin? Sign in here →
+   Create organisation**, and fill in your name, organisation and first PG.
+   You're its Admin straight away. Fill in **Menu** and **Settings**.
+   (The older way still works for the PG the build creates: create a
+   resident account with your number, then in the Convex dashboard on
+   **Production**: **Functions → setup → makeFirstAdmin** →
+   `{"phone": "+91XXXXXXXXXX"}` → **Run**.)
 
 Never set `MEALSYNC_ALLOW_DEV_SEED` on production (the build refuses to run
 if it is). A custom domain is added later in Vercel → Settings → Domains;
@@ -222,7 +242,8 @@ convex/
   schema.ts            all tables (organizationId + propertyId everywhere)
   auth.ts              phone + password provider
   authLimits.ts        sign-in rate limits (internal)
-  users.ts             me, completeProfile (fallback), changePassword
+  users.ts             me, organisation sign-up, completeProfile (fallback), changePassword
+  directory.ts         organisations and PGs for the sign-up dropdowns (public)
   access.ts            permission checks used by actions (internal)
   meals.ts             myDays, saveChoices, ensureUpcoming, generateUpcoming (daily)
   crons.ts             daily jobs (next 7 days of meals, ending stays) and the
@@ -230,13 +251,13 @@ convex/
   notifications.ts     phone reminders: subscribe, unsubscribe, sendDueReminders
   push.ts              sends reminders (Web Push, Node runtime, internal)
   reports.ts           summary, exportCsv (Admin)
-  settings.ts          PG names, meal times & deadline, reminders, messages (Admin)
+  settings.ts          organisation, add/rename properties, meals & deadline, reminders, messages (Admin)
   dashboard.ts         day (headcount per meal), responses (each resident's choices)
   menus.ts             get, save, setThisWeek (Admin)
   residents.ts         listPending, pendingCount, approve, reject, list,
                        updateDetails, moveOut, cancelMoveOut, resetPassword,
                        endStays (daily)
-  staff.ts             list, grantRole, revokeRole (Admin)
+  staff.ts             list, grantRole, setProperties, remove (Admin)
   setup.ts             createProperty, makeFirstAdmin (internal, one-time)
   seed.ts              development-only test data (internal, env-guarded)
   lib/                 permission wrappers, validators, input rules, audit,

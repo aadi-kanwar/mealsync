@@ -5,7 +5,7 @@ import type { QueryCtx } from "./_generated/server";
 import { writeAudit } from "./lib/audit";
 import { toCsv } from "./lib/csv";
 import { appError } from "./lib/errors";
-import { staffMutation, staffQuery } from "./lib/functions";
+import { inScope, staffMutation, staffQuery } from "./lib/functions";
 import { isoDateSchema } from "./lib/inputRules";
 import { approvedLeavesOf, ineligibilityOn, servicesOn } from "./lib/meals";
 import { addDays, weekdayOf } from "./lib/time";
@@ -163,12 +163,32 @@ function summariseResident(rows: ResidentRow[]) {
 const NOT_COUNTED = { cancelled: "Meal cancelled", on_leave: "On leave", not_living_here: "Not living here" } as const;
 const CHOICE = { yes: "Yes", no: "No" } as const;
 
-async function loadReportResident(ctx: Pick<QueryCtx, "db">, propertyId: Doc<"properties">["_id"], residentId: Doc<"residents">["_id"]) {
+/** A current or moved-out resident of one of the properties the report covers. */
+async function loadReportResident(
+  ctx: Pick<QueryCtx, "db">,
+  properties: readonly Doc<"properties">[],
+  residentId: Doc<"residents">["_id"],
+) {
   const resident = await ctx.db.get(residentId);
-  if (resident === null || resident.propertyId !== propertyId || (resident.status !== "active" && resident.status !== "inactive")) {
+  const property = resident && properties.find((p) => p._id === resident.propertyId);
+  if (!resident || !property || (resident.status !== "active" && resident.status !== "inactive")) {
     throw appError("NOT_FOUND", "That resident wasn't found.");
   }
-  return resident;
+  return { resident, property };
+}
+
+/** The report rows of every property in scope, each tagged with its property. */
+async function buildReports(ctx: Pick<QueryCtx, "db">, properties: readonly Doc<"properties">[], from: string, to: string) {
+  const all = [];
+  for (const property of properties) {
+    for (const row of await buildReport(ctx, property, from, to)) all.push({ ...row, property: property.name });
+  }
+  return all;
+}
+
+/** Audit entry scope: the one property, or the organisation for "all". */
+function auditScope(properties: readonly Doc<"properties">[]) {
+  return properties.length === 1 ? properties[0] : { organizationId: properties[0].organizationId };
 }
 
 function summarise(rows: ReportRow[]) {
@@ -193,13 +213,13 @@ export const summary = staffQuery({
   args: { from: v.string(), to: v.string(), residentId: v.optional(v.id("residents")) },
   handler: async (ctx, args) => {
     const { from, to } = parseRange(args.from, args.to);
-    const { property } = ctx.staff;
+    const properties = inScope(ctx.staff);
     if (args.residentId !== undefined) {
-      const resident = await loadReportResident(ctx, property._id, args.residentId);
+      const { resident, property } = await loadReportResident(ctx, properties, args.residentId);
       const rows = await buildResidentReport(ctx, property, resident, from, to);
       return { from, to, days: new Set(rows.map((r) => r.date)).size, meals: summariseResident(rows) };
     }
-    const rows = await buildReport(ctx, property, from, to);
+    const rows = await buildReports(ctx, properties, from, to);
     return { from, to, days: new Set(rows.map((r) => r.date)).size, meals: summarise(rows) };
   },
 });
@@ -213,15 +233,17 @@ export const exportCsv = staffMutation({
   args: { from: v.string(), to: v.string(), residentId: v.optional(v.id("residents")) },
   handler: async (ctx, args) => {
     const { from, to } = parseRange(args.from, args.to);
-    const { property, userId } = ctx.staff;
+    const { userId } = ctx.staff;
+    const properties = inScope(ctx.staff);
     if (args.residentId !== undefined) {
-      const resident = await loadReportResident(ctx, property._id, args.residentId);
+      const { resident, property } = await loadReportResident(ctx, properties, args.residentId);
       const rows = await buildResidentReport(ctx, property, resident, from, to);
       const csv = toCsv([
-        ["Resident", "Room", "Date", "Day", "Meal", "Choice", "Last saved"],
+        ["Resident", "Room", "Property", "Date", "Day", "Meal", "Choice", "Last saved"],
         ...rows.map((r) => [
           resident.displayName,
           resident.roomNumber,
+          property.name,
           r.date,
           WEEKDAYS[weekdayOf(r.date)],
           r.meal,
@@ -240,10 +262,11 @@ export const exportCsv = staffMutation({
       const slug = resident.displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "resident";
       return { filename: `dine-${slug}-${from}-to-${to}.csv`, csv };
     }
-    const rows = await buildReport(ctx, property, from, to);
+    const rows = await buildReports(ctx, properties, from, to);
     const csv = toCsv([
-      ["Date", "Day", "Meal", "Status", "Residents counted", "Yes", "No", "Not answered", "Answered"],
+      ["Property", "Date", "Day", "Meal", "Status", "Residents counted", "Yes", "No", "Not answered", "Answered"],
       ...rows.map((r) => [
+        r.property,
         r.date,
         WEEKDAYS[weekdayOf(r.date)],
         r.meal,
@@ -255,15 +278,17 @@ export const exportCsv = staffMutation({
         percent(r.yes + r.no, r.counted),
       ]),
     ]);
+    const scope = auditScope(properties);
     await writeAudit(ctx, {
-      property,
+      property: scope,
       actorUserId: userId,
       action: "report.exported",
-      entityType: "properties",
-      entityId: property._id,
-      metadata: { from, to, rows: rows.length },
+      entityType: properties.length === 1 ? "properties" : "organizations",
+      entityId: properties.length === 1 ? properties[0]._id : properties[0].organizationId,
+      metadata: { from, to, rows: rows.length, properties: properties.map((p) => p._id) },
     });
-    return { filename: `dine-report-${from}-to-${to}.csv`, csv };
+    const which = properties.length === 1 ? properties[0].slug : "all-properties";
+    return { filename: `dine-${which}-${from}-to-${to}.csv`, csv };
   },
 });
 
@@ -272,18 +297,26 @@ export const residents = staffQuery({
   roles: [],
   args: {},
   handler: async (ctx) => {
-    const { property } = ctx.staff;
+    const properties = inScope(ctx.staff);
     const all = [];
-    for (const status of ["active", "inactive"] as const) {
-      all.push(
-        ...(await ctx.db
-          .query("residents")
-          .withIndex("by_property_status", (q) => q.eq("propertyId", property._id).eq("status", status))
-          .collect()),
-      );
+    for (const property of properties) {
+      for (const status of ["active", "inactive"] as const) {
+        all.push(
+          ...(await ctx.db
+            .query("residents")
+            .withIndex("by_property_status", (q) => q.eq("propertyId", property._id).eq("status", status))
+            .collect()),
+        );
+      }
     }
     return all
-      .map((r) => ({ residentId: r._id, displayName: r.displayName, roomNumber: r.roomNumber, movedOut: r.status === "inactive" }))
+      .map((r) => ({
+        residentId: r._id,
+        displayName: r.displayName,
+        roomNumber: r.roomNumber,
+        propertyName: properties.length > 1 ? (properties.find((p) => p._id === r.propertyId)?.name ?? "") : null,
+        movedOut: r.status === "inactive",
+      }))
       .sort((a, b) => Number(a.movedOut) - Number(b.movedOut) || a.displayName.localeCompare(b.displayName));
   },
 });

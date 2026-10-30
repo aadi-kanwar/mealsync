@@ -11,7 +11,7 @@ import { z } from "zod";
 import { api } from "@convex/_generated/api";
 import { PASSWORD_MIN_LENGTH, passwordProblem } from "@convex/lib/inputRules";
 import { ResidentShell } from "@/components/app/resident-shell";
-import { useMe } from "@/components/app/session";
+import { destinationFor, useMe } from "@/components/app/session";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -44,10 +44,14 @@ function buildSchema(needsCurrent: boolean, phone: string | null) {
 export default function ChangePasswordPage() {
   const me = useMe();
   const router = useRouter();
+  const [saved, setSaved] = useState(false);
   useEffect(() => {
     if (me === null) router.replace("/signin");
-  }, [me, router]);
-  if (me === undefined || me === null || me.profile === null) {
+    // Move on once the account shows the new password is chosen; going
+    // earlier would bring them straight back to this screen.
+    else if (saved && me && me.profile && !me.profile.mustChangePassword) router.replace(destinationFor(me));
+  }, [me, router, saved]);
+  if (me === undefined || me === null || me.profile === null || saved) {
     return (
       <ResidentShell>
         <LoadingState rows={2} />
@@ -56,13 +60,12 @@ export default function ChangePasswordPage() {
   }
   return (
     <ResidentShell pgName={me.property?.name}>
-      <ChangePasswordForm forced={me.profile.mustChangePassword} phone={me.phone} />
+      <ChangePasswordForm forced={me.profile.mustChangePassword} phone={me.phone} onSaved={() => setSaved(true)} />
     </ResidentShell>
   );
 }
 
-function ChangePasswordForm({ forced, phone }: { forced: boolean; phone: string | null }) {
-  const router = useRouter();
+function ChangePasswordForm({ forced, phone, onSaved }: { forced: boolean; phone: string | null; onSaved: () => void }) {
   const changePassword = useAction(api.users.changePassword);
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<z.infer<ReturnType<typeof buildSchema>>>({
@@ -75,7 +78,7 @@ function ChangePasswordForm({ forced, phone }: { forced: boolean; phone: string 
     try {
       await changePassword({ currentPassword: forced ? undefined : values.current, newPassword: values.password });
       toast.success("Your new password is saved.");
-      router.replace("/");
+      onSaved();
     } catch (error) {
       setServerError(friendlyError(error));
     }

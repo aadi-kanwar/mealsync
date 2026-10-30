@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { Check, Lock } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "@convex/_generated/api";
@@ -12,6 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadingState } from "@/components/ui/skeleton";
 import { formatDay, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@/lib/convex";
 
 const DAYS_SHOWN = 7;
 

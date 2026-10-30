@@ -443,7 +443,11 @@ function DesignSystem() {
             <StaffSidebar items={STAFF_NAV} preview />
           </div>
           <div className="w-full max-w-sm self-start overflow-hidden rounded-md border border-border">
-            <BottomNav items={STAFF_NAV} preview />
+            <BottomNav
+              items={STAFF_NAV.filter((item) => item.mobile !== false)}
+              more={{ items: STAFF_NAV.filter((item) => item.mobile === false), footer: null }}
+              preview
+            />
           </div>
         </div>
       </Section>

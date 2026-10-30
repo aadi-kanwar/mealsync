@@ -14,9 +14,16 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { PHONE_PASSWORD_PROVIDER } from "./auth";
 import { writeAudit } from "./lib/audit";
-import { getProfile, getResidentRecord, internalAction, internalMutation } from "./lib/functions";
+import {
+  getProfile,
+  getResidentRecord,
+  getStaffAccess,
+  internalAction,
+  internalMutation,
+  organizationProperties,
+} from "./lib/functions";
 import { passwordProblem } from "./lib/inputRules";
-import { ensureProperty } from "./lib/property";
+import { createProperty, ensureProperty } from "./lib/property";
 import { grantStaffRole } from "./lib/staffRoles";
 import { localDateString } from "./lib/time";
 
@@ -87,14 +94,21 @@ export const dev = internalAction({
   },
 });
 
+const SECOND_PG = "TEST PG 2 (development)";
+
 export const ensureDevProperty = internalMutation({
   args: {},
   handler: async (ctx) => {
     if (!devSeedAllowed(process.env).allowed) throw new Error("Refusing to seed.");
-    await ensureProperty(ctx, {
+    const { property } = await ensureProperty(ctx, {
       organizationName: "TEST Organization",
       propertyName: "TEST PG (development)",
     });
+    // A second PG, so screens covering several properties can be tried.
+    const others = await organizationProperties(ctx, property.organizationId);
+    if (!others.some((p) => p.name === SECOND_PG)) {
+      await createProperty(ctx, { organizationId: property.organizationId, name: SECOND_PG, createdBy: undefined });
+    }
     return null;
   },
 });
@@ -126,17 +140,14 @@ export const attachTestUser = internalMutation({
     }
 
     if (args.kind === "admin" || args.kind === "warden") {
-      const roles = await ctx.db
-        .query("staffRoles")
-        .withIndex("by_property_user", (q) =>
-          q.eq("propertyId", property._id).eq("userId", args.userId),
-        )
-        .collect();
-      if (!roles.some((r) => r.role === args.kind && r.status === "active")) {
+      // The Warden looks after the first PG only.
+      const access = await getStaffAccess(ctx, args.userId);
+      if (access === null || !access.roles.includes(args.kind)) {
         await grantStaffRole(ctx, {
-          property,
+          organizationId: property.organizationId,
           targetUserId: args.userId,
           role: args.kind,
+          propertyIds: args.kind === "warden" ? [property._id] : undefined,
           grantedBy: undefined,
           auditAction: "staff.role_granted",
         });
@@ -144,7 +155,7 @@ export const attachTestUser = internalMutation({
       return null;
     }
 
-    if ((await getResidentRecord(ctx, property._id, args.userId)) === null) {
+    if ((await getResidentRecord(ctx, args.userId)) === null) {
       const active = args.kind === "resident_active";
       const residentId = await ctx.db.insert("residents", {
         organizationId: property.organizationId,
@@ -198,6 +209,11 @@ export const removeTestSignups = internalMutation({
       ...(await ctx.db.query("authAccounts").collect()).filter((a) => userIds.has(a.userId)),
     ];
     for (const row of rows) await ctx.db.delete(row._id);
+    // Organisations they created can't be deleted (their audit entries are permanent): close them.
+    for (const org of (await ctx.db.query("organizations").collect()).filter((o) => o.createdBy && userIds.has(o.createdBy))) {
+      await ctx.db.patch(org._id, { status: "inactive" });
+      for (const p of await organizationProperties(ctx, org._id)) await ctx.db.patch(p._id, { status: "inactive" });
+    }
     for (const userId of userIds) await ctx.db.delete(userId);
     return { removedAccounts: userIds.size };
   },

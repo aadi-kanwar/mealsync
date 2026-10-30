@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { Check, KeyRound, Minus, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -18,6 +17,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@/lib/convex";
 
 const DAYS_PER_PAGE = 14;
 

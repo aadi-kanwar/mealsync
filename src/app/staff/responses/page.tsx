@@ -1,9 +1,9 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { Check, Minus, X } from "lucide-react";
 import { Suspense, useState } from "react";
 import { api } from "@convex/_generated/api";
+import { usePropertyScope } from "@/components/app/property-scope";
 import { matchesSearch, sortPeople, SortSelect, type SortKey } from "@/components/app/resident-sort";
 import { DatePicker, EnsureMeals, useStaffDate } from "@/components/app/staff-date";
 import { RequireStaff } from "@/components/app/staff-gate";
@@ -15,6 +15,7 @@ import { LoadingState } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/states";
 import { formatDay, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@/lib/convex";
 
 export default function ResponsesPage() {
   return (
@@ -26,21 +27,24 @@ export default function ResponsesPage() {
   );
 }
 
-const CHOICE_TEXT = { yes: "Yes", no: "No", none: "not answered" } as const;
+const CHOICE_TEXT = { yes: "Yes", no: "No", none: "not answered", not_served: "not served at their PG" } as const;
 
 /** Every counted resident's choices for a day, and when they last saved. */
 function Responses() {
   const { date, setDate, today, timezone } = useStaffDate();
-  const data = useQuery(api.dashboard.responses, { date });
+  const { arg, current, properties } = usePropertyScope();
+  const showProperty = current === null && properties.length > 1;
+  const data = useQuery(api.dashboard.responses, { ...arg, date });
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("room-asc");
   const complete = data?.residents.filter((r) => r.selections.every((s) => s !== null)).length ?? 0;
+  const where = current?.name ?? (showProperty ? "all properties" : null);
   const shown = sortPeople((data?.residents ?? []).filter((r) => matchesSearch(r, search)), sort);
 
   return (
     <>
       <EnsureMeals />
-      <PageHeader title="Responses" description={`What each resident chose for ${formatDay(date, "EEEE d MMMM")}. Updates live.`} />
+      <PageHeader title="Responses" description={`What each resident${where ? ` of ${where}` : ""} chose for ${formatDay(date, "EEEE d MMMM")}. Updates live.`} />
       <DatePicker date={date} today={today} onChange={setDate} />
       <div className="flex flex-col gap-3 sm:flex-row">
         <SearchInput label="Search by name or room" placeholder="Name or room" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -73,7 +77,10 @@ function Responses() {
                 <li key={resident.residentId} className="flex items-center justify-between gap-3 px-4 py-2.5">
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-sm font-medium">{resident.displayName}</span>
-                    <span className="text-xs text-foreground-secondary">Room {resident.roomNumber}</span>
+                    <span className="text-xs text-foreground-secondary">
+                      Room {resident.roomNumber}
+                      {showProperty ? ` · ${resident.propertyName}` : ""}
+                    </span>
                     <span className="text-xs text-foreground-muted">
                       {resident.lastSavedAt === null
                         ? "Nothing saved"
@@ -85,7 +92,7 @@ function Responses() {
                       const choice = resident.selections[i] ?? "none";
                       return (
                         <span
-                          key={meal.serviceId}
+                          key={meal.mealType}
                           role="img"
                           aria-label={`${meal.name}: ${CHOICE_TEXT[choice]}`}
                           className={cn(
@@ -93,10 +100,13 @@ function Responses() {
                             choice === "yes" && "border-primary-subtle-border bg-primary-subtle text-primary-text",
                             choice === "no" && "border-border bg-subtle text-foreground-secondary",
                             choice === "none" && "border-dashed border-warning-border bg-warning-subtle text-warning",
+                            choice === "not_served" && "border-transparent text-foreground-muted",
                           )}
                         >
                           {meal.name.charAt(0)}
-                          <Icon icon={choice === "yes" ? Check : choice === "no" ? X : Minus} className="size-3.5" />
+                          {choice === "not_served" ? null : (
+                            <Icon icon={choice === "yes" ? Check : choice === "no" ? X : Minus} className="size-3.5" />
+                          )}
                         </span>
                       );
                     })}

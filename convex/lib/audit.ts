@@ -22,7 +22,10 @@ export type AuditAction =
   | "settings.meal_times_updated"
   | "settings.reminders_updated"
   | "report.exported"
-  | "resident.details_updated";
+  | "resident.details_updated"
+  | "organization.created"
+  | "organization.renamed"
+  | "staff.properties_updated";
 
 /**
  * Appends one audit entry. Callers must never put passwords, tokens or
@@ -31,7 +34,8 @@ export type AuditAction =
 export async function writeAudit(
   ctx: Pick<MutationCtx, "db">,
   entry: {
-    property: Pick<Doc<"properties">, "_id" | "organizationId">;
+    /** The property it's about, or `{ organizationId }` for organisation-wide actions. */
+    property: Pick<Doc<"properties">, "_id" | "organizationId"> | { _id?: undefined; organizationId: Id<"organizations"> };
     actorUserId: Id<"users"> | undefined;
     action: AuditAction;
     entityType: string;

@@ -3,28 +3,39 @@ import { api, internal } from "../_generated/api";
 import { DEFAULT_QUESTIONS, DEFAULT_WASTE_MESSAGE, questionFor } from "../lib/messages";
 import { createActiveResident, createProperty, createStaff, errorCode, setupTest } from "./harness.test-utils";
 
-test("the Admin renames the organisation and PG; audited; others can't", async () => {
+test("the Admin renames the organisation and a PG, and adds PGs; audited; others can't", async () => {
   const t = await setupTest();
-  await createProperty(t);
+  const first = await createProperty(t);
   const admin = await createStaff(t, "admin");
   expect(await admin.as.query(api.settings.get, {})).toMatchObject({ organizationName: "Test Org", propertyName: "Test PG" });
-  await admin.as.mutation(api.settings.update, { organizationName: " Sunrise  Stays ", propertyName: "Sunrise PG, Koramangala" });
+  await admin.as.mutation(api.settings.renameOrganization, { name: " Sunrise  Stays " });
+  await admin.as.mutation(api.settings.renameProperty, { name: "Sunrise PG, Koramangala" });
   expect(await admin.as.query(api.settings.get, {})).toMatchObject({
     organizationName: "Sunrise Stays",
     propertyName: "Sunrise PG, Koramangala",
   });
-  expect((await admin.as.query(api.users.me, {}))?.property?.name).toBe("Sunrise PG, Koramangala");
-  expect(await errorCode(admin.as.mutation(api.settings.update, { organizationName: "A", propertyName: "Fine name" }))).toBe(
-    "INVALID_INPUT",
-  );
+  expect((await admin.as.query(api.users.me, {}))?.staff?.organizationName).toBe("Sunrise Stays");
+  expect(await errorCode(admin.as.mutation(api.settings.renameOrganization, { name: "A" }))).toBe("INVALID_INPUT");
   const audit = await t.run((ctx) => ctx.db.query("auditLogs").collect());
-  expect(audit.at(-1)).toMatchObject({ action: "settings.updated" });
+  expect(audit.map((a) => a.action)).toEqual(expect.arrayContaining(["organization.renamed", "settings.updated"]));
+
+  // A second PG: comes with the default meals; settings then need a chosen PG.
+  const second = await admin.as.mutation(api.settings.addProperty, { name: "Sunrise PG, HSR" });
+  const org = await admin.as.query(api.settings.organization, {});
+  expect(org.properties.map((p) => p.name)).toEqual(["Sunrise PG, HSR", "Sunrise PG, Koramangala"]);
+  expect(await errorCode(admin.as.query(api.settings.get, {}))).toBe("CHOOSE_PROPERTY");
+  expect((await admin.as.query(api.settings.get, { propertyId: second })).meals).toHaveLength(4);
+  expect(await errorCode(admin.as.mutation(api.settings.addProperty, { name: "sunrise pg, hsr" }))).toBe("CONFLICT");
+  expect(
+    await errorCode(admin.as.mutation(api.settings.renameProperty, { propertyId: first._id, name: "Sunrise PG, HSR" })),
+  ).toBe("CONFLICT");
 
   const warden = await createStaff(t, "warden");
   const resident = await createActiveResident(t);
   for (const as of [warden.as, resident.as]) {
     expect(await errorCode(as.query(api.settings.get, {}))).toBe("FORBIDDEN");
-    expect(await errorCode(as.mutation(api.settings.update, { organizationName: "Xx", propertyName: "Yy" }))).toBe("FORBIDDEN");
+    expect(await errorCode(as.mutation(api.settings.renameProperty, { name: "Yy pg" }))).toBe("FORBIDDEN");
+    expect(await errorCode(as.mutation(api.settings.addProperty, { name: "Yy pg" }))).toBe("FORBIDDEN");
   }
 });
 

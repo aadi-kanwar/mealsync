@@ -151,6 +151,8 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Nothing on the page may make it scroll sideways. */
+    overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground font-sans text-base antialiased;
@@ -161,6 +163,19 @@
   }
   ::selection {
     @apply bg-primary-subtle;
+  }
+}
+
+/*
+ * Phones (iPhone especially) zoom the page in when a text box or dropdown
+ * with text under 16px is tapped, leaving it slightly scrollable sideways
+ * and up and down. On touch screens, form controls are never smaller.
+ */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 16px) !important;
   }
 }
 

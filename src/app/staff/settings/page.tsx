@@ -1,12 +1,14 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { Bell, Building2, Clock, MessageSquareHeart, Palette, Plus, Trash2, type LucideIcon } from "lucide-react";
+import { useMutation } from "convex/react";
+import { Bell, Building2, Clock, MessageSquareHeart, Network, Palette, Plus, Trash2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { api } from "@convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
+import type { Id } from "@convex/_generated/dataModel";
+import { RequireOneProperty, usePropertyScope } from "@/components/app/property-scope";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -21,10 +23,12 @@ import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
 import { formatClock } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@/lib/convex";
 
 type SettingsData = FunctionReturnType<typeof api.settings.get>;
 
 const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "organisation", label: "Organisation", icon: Network },
   { id: "pg", label: "PG details", icon: Building2 },
   { id: "meals", label: "Meals & deadline", icon: Clock },
   { id: "reminders", label: "Phone reminders", icon: Bell },
@@ -42,14 +46,15 @@ export default function SettingsPage() {
 }
 
 function Settings() {
-  const data = useQuery(api.settings.get);
   const params = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const section = SECTIONS.find((s) => s.id === params.get("section")) ?? SECTIONS[0];
   return (
     <>
-      <PageHeader title="Settings" description="Only the Admin sees this page." />
+      <PageHeader
+        title="Settings"
+        description="Only Admins see this page. Organisation settings cover every property; the rest are set per property."
+      />
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
         <nav aria-label="Settings sections" className="-mx-1 overflow-x-auto lg:mx-0 lg:w-56 lg:shrink-0">
           <ul className="flex gap-1 px-1 lg:flex-col lg:px-0">
@@ -58,7 +63,8 @@ function Settings() {
                 <button
                   type="button"
                   aria-current={s === section ? "page" : undefined}
-                  onClick={() => router.replace(s === SECTIONS[0] ? pathname : `${pathname}?section=${s.id}`, { scroll: false })}
+                  // Only the address changes (no trip to the web server).
+                  onClick={() => window.history.replaceState(null, "", s === SECTIONS[0] ? pathname : `${pathname}?section=${s.id}`)}
                   className={cn(
                     "flex min-h-11 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm font-medium whitespace-nowrap transition-colors",
                     s === section ? "bg-primary-subtle text-primary-text" : "text-foreground-secondary hover:bg-subtle hover:text-foreground",
@@ -81,20 +87,109 @@ function Settings() {
           </ul>
         </nav>
         <div className="flex min-w-0 max-w-xl flex-1 flex-col gap-4">
-          {data === undefined ? (
-            <LoadingState rows={3} />
-          ) : section.id === "pg" ? (
-            <PgDetailsForm initial={data} />
-          ) : section.id === "meals" ? (
-            <MealsForm initial={data} />
-          ) : section.id === "reminders" ? (
-            <RemindersForm initial={data} />
+          {section.id === "organisation" ? (
+            <OrganisationSection />
           ) : (
-            <ResidentMessagesForm initial={data} />
+            <RequireOneProperty what={section.label}>
+              {(property) => <PropertySection key={property.propertyId} section={section.id} propertyId={property.propertyId} />}
+            </RequireOneProperty>
           )}
         </div>
       </div>
     </>
+  );
+}
+
+/** A property's settings section. Forms start from what's saved and reset when the property changes. */
+function PropertySection({ section, propertyId }: { section: string; propertyId: Id<"properties"> }) {
+  const data = useQuery(api.settings.get, { propertyId });
+  if (data === undefined) return <LoadingState rows={3} />;
+  const props = { initial: data, propertyId };
+  return section === "pg" ? (
+    <PgDetailsForm {...props} />
+  ) : section === "meals" ? (
+    <MealsForm {...props} />
+  ) : section === "reminders" ? (
+    <RemindersForm {...props} />
+  ) : (
+    <ResidentMessagesForm {...props} />
+  );
+}
+
+type FormProps = { initial: SettingsData; propertyId: Id<"properties"> };
+
+/** The organisation's name, its properties, and adding a property. */
+function OrganisationSection() {
+  const org = useQuery(api.settings.organization, {});
+  const rename = useMutation(api.settings.renameOrganization);
+  const [name, setName] = useState<string | null>(null);
+  const current = name ?? org?.name ?? "";
+  const { busy, error, onSubmit } = useSave(
+    () => rename({ name: current }),
+    () => "Organisation name saved.",
+  );
+  if (org === undefined) return <LoadingState rows={3} />;
+  return (
+    <>
+      <SectionHeading title="Organisation" description="Your business, and the properties (PGs) in it. Residents pick their PG when they sign up." />
+      <Card>
+        <CardBody>
+          <form noValidate className="flex flex-col gap-4" onSubmit={onSubmit}>
+            {error ? <Banner tone="danger">{error}</Banner> : null}
+            <Field id="org-name" label="Organisation name" hint="Residents see it when choosing their PG at sign-up.">
+              {(p) => <Input {...p} maxLength={80} value={current} onChange={(e) => setName(e.target.value)} />}
+            </Field>
+            <Button type="submit" loading={busy} disabled={current === org.name} className="self-start">
+              Save
+            </Button>
+          </form>
+        </CardBody>
+      </Card>
+      <Card>
+        <CardBody className="flex flex-col gap-3">
+          <h3 className="font-semibold">Properties</h3>
+          <ul className="flex flex-col divide-y divide-border" aria-label="Properties">
+            {org.properties.map((p) => (
+              <li key={p.propertyId} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="font-medium">{p.name}</span>
+                <span className="tabular text-sm text-foreground-secondary">
+                  {p.residents === 1 ? "1 resident" : `${p.residents} residents`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <AddPropertyForm />
+        </CardBody>
+      </Card>
+    </>
+  );
+}
+
+function AddPropertyForm() {
+  const add = useMutation(api.settings.addProperty);
+  const { choose } = usePropertyScope();
+  const [name, setName] = useState("");
+  const { busy, error, onSubmit } = useSave(
+    async () => {
+      const propertyId = await add({ name });
+      setName("");
+      choose(propertyId);
+    },
+    () => "Property added, with the usual meals and deadline. Change them under its settings.",
+  );
+  return (
+    <form noValidate className="flex flex-col gap-3 border-t border-border pt-3" onSubmit={onSubmit}>
+      {error ? <Banner tone="danger">{error}</Banner> : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <Field id="new-property" label="Add a property" className="flex-1">
+          {(p) => <Input {...p} maxLength={80} placeholder="e.g. Sunrise PG, HSR Layout" value={name} onChange={(e) => setName(e.target.value)} />}
+        </Field>
+        <Button type="submit" variant="secondary" loading={busy} disabled={name.trim().length < 2}>
+          <Icon icon={Plus} />
+          Add
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -126,22 +221,18 @@ function useSave(save: () => Promise<unknown>, success: (result: unknown) => str
   return { busy, error, onSubmit };
 }
 
-function PgDetailsForm({ initial }: { initial: SettingsData }) {
-  const update = useMutation(api.settings.update);
-  const [organizationName, setOrganizationName] = useState(initial.organizationName);
+function PgDetailsForm({ initial, propertyId }: FormProps) {
+  const rename = useMutation(api.settings.renameProperty);
   const [propertyName, setPropertyName] = useState(initial.propertyName);
-  const { busy, error, onSubmit } = useSave(() => update({ organizationName, propertyName }), () => "Details saved.");
-  const changed = organizationName !== initial.organizationName || propertyName !== initial.propertyName;
+  const { busy, error, onSubmit } = useSave(() => rename({ propertyId, name: propertyName }), () => "Details saved.");
+  const changed = propertyName !== initial.propertyName;
   return (
     <>
-      <SectionHeading title="PG details" description="Your organisation and PG names. Residents and staff see the PG name." />
+      <SectionHeading title="PG details" description="This property's name. Residents and staff see it at the top of their screens." />
       <Card>
         <CardBody>
           <form noValidate className="flex flex-col gap-4" onSubmit={onSubmit}>
             {error ? <Banner tone="danger">{error}</Banner> : null}
-            <Field id="org-name" label="Organisation name" hint="Your business name.">
-              {(p) => <Input {...p} maxLength={80} value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} />}
-            </Field>
             <Field id="pg-name" label="PG name" hint="Shown at the top of every screen.">
               {(p) => <Input {...p} maxLength={80} value={propertyName} onChange={(e) => setPropertyName(e.target.value)} />}
             </Field>
@@ -167,7 +258,7 @@ const WARN_OPTIONS = [
 
 type MealSetting = SettingsData["meals"][number];
 
-function MealsForm({ initial }: { initial: SettingsData }) {
+function MealsForm({ initial, propertyId }: FormProps) {
   const update = useMutation(api.settings.updateMeals);
   const [meals, setMeals] = useState(initial.meals);
   const [daysBefore, setDaysBefore] = useState(initial.cutoff.daysBefore);
@@ -181,6 +272,7 @@ function MealsForm({ initial }: { initial: SettingsData }) {
   const { busy, error, onSubmit } = useSave(
     () =>
       update({
+        propertyId,
         meals: meals.map(({ mealType, displayName, serviceTime, endTime, serviceDays, active }) => ({
           mealType,
           displayName,
@@ -321,13 +413,13 @@ function MealsForm({ initial }: { initial: SettingsData }) {
 
 const MAX_REMINDERS = 4;
 
-function RemindersForm({ initial }: { initial: SettingsData }) {
+function RemindersForm({ initial, propertyId }: FormProps) {
   const update = useMutation(api.settings.updateReminders);
   const [enabled, setEnabled] = useState(initial.reminders.enabled);
   const [times, setTimes] = useState(initial.reminders.times);
   const changed = enabled !== initial.reminders.enabled || times.join() !== initial.reminders.times.join();
   const { busy, error, onSubmit } = useSave(
-    () => update({ enabled, times: times.filter((t) => t !== "") }),
+    () => update({ propertyId, enabled, times: times.filter((t) => t !== "") }),
     () => (enabled ? "Saved. Reminders go out at the new times." : "Saved. Reminders are off."),
   );
   const n = initial.residentsWithReminders;
@@ -396,13 +488,13 @@ function RemindersForm({ initial }: { initial: SettingsData }) {
 }
 
 /** The question of the day (three, taking turns) and the message about food waste. */
-function ResidentMessagesForm({ initial }: { initial: SettingsData }) {
+function ResidentMessagesForm({ initial, propertyId }: FormProps) {
   const update = useMutation(api.settings.updateResidentMessages);
   const start = [0, 1, 2].map((i) => initial.questions[i] ?? "");
   const [questions, setQuestions] = useState(start);
   const [wasteMessage, setWasteMessage] = useState(initial.wasteMessage);
   const { busy, error, onSubmit } = useSave(
-    () => update({ questions, wasteMessage }),
+    () => update({ propertyId, questions, wasteMessage }),
     () => "Saved. Residents see it straight away.",
   );
   const changed = questions.some((q, i) => q !== start[i]) || wasteMessage !== initial.wasteMessage;

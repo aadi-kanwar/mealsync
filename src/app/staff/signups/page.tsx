@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { Check, UserCheck, X } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -10,7 +10,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { formatPhoneForDisplay, isoDateSchema, roomNumberSchema } from "@convex/lib/inputRules";
 import { RequireStaff } from "@/components/app/staff-gate";
-import { useMe } from "@/components/app/session";
+import { usePropertyScope } from "@/components/app/property-scope";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/ui/states";
 import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
 import { formatDateTime, todayIn } from "@/lib/format";
+import { useQuery } from "@/lib/convex";
 
 export default function SignupsPage() {
   return (
@@ -37,14 +38,15 @@ type Pending = {
   residentId: Id<"residents">;
   displayName: string;
   roomNumber: string;
+  propertyName: string;
   phone: string | null;
   signedUpAt: number;
 };
 
 function Signups() {
-  const me = useMe();
-  const pending = useQuery(api.residents.listPending);
-  const timezone = me?.property?.timezone;
+  const { arg, timezone, current, properties } = usePropertyScope();
+  const pending = useQuery(api.residents.listPending, arg);
+  const showProperty = current === null && properties.length > 1;
   return (
     <>
       <PageHeader
@@ -59,7 +61,7 @@ function Signups() {
         <ul className="flex flex-col gap-3" aria-label="Waiting for approval">
           {pending.map((person) => (
             <li key={person.residentId}>
-              <PendingRow person={person} timezone={timezone} />
+              <PendingRow person={person} timezone={timezone} showProperty={showProperty} />
             </li>
           ))}
         </ul>
@@ -68,12 +70,18 @@ function Signups() {
   );
 }
 
-function PendingRow({ person, timezone }: { person: Pending; timezone?: string }) {
+function PendingRow({ person, timezone, showProperty }: { person: Pending; timezone?: string; showProperty: boolean }) {
   return (
     <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="sr-only">Name</dt>
         <dd className="col-span-2 text-base font-medium">{person.displayName}</dd>
+        {showProperty ? (
+          <>
+            <dt className="text-foreground-secondary">PG</dt>
+            <dd>{person.propertyName}</dd>
+          </>
+        ) : null}
         <dt className="text-foreground-secondary">Room</dt>
         <dd>{person.roomNumber}</dd>
         <dt className="text-foreground-secondary">Phone</dt>

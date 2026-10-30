@@ -32,7 +32,9 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   const resident = await residentContext.newPage();
   await resident.goto("/signin");
   await resident.getByRole("tab", { name: "Create account" }).click();
-  // Name and room are asked once, on the same form.
+  // Their PG, name and room are asked once, on the same form.
+  await resident.getByLabel("Organisation").selectOption({ label: "TEST Organization" });
+  await resident.getByLabel("PG", { exact: true }).selectOption({ label: "TEST PG (development)" });
   await resident.getByLabel("Full name").fill(name);
   await resident.getByLabel("Room number").fill("E2E-1");
   await resident.getByLabel("Mobile number").fill(phone);
@@ -180,4 +182,22 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
 test("wrong password shows a plain message", async ({ page }) => {
   await signIn(page, WARDEN_PHONE, "definitely-wrong");
   await expect(page.getByText("That phone number and password didn't work.", { exact: false })).toBeVisible();
+});
+
+test("a PG owner creates their organisation and lands on its dashboard", async ({ page }) => {
+  const phone = `6${String(Date.now()).slice(-9)}`;
+  await page.goto("/signin?as=admin");
+  await page.getByRole("tab", { name: "Create organisation" }).click();
+  await page.getByLabel("Your full name").fill(`E2E Person ${phone.slice(-4)}`);
+  await page.getByLabel("Organisation name").fill(`E2E Org ${phone.slice(-4)}`);
+  await page.getByLabel("Your first PG's name").fill("E2E PG");
+  await page.getByLabel("Mobile number").fill(phone);
+  await page.getByLabel("Password", { exact: true }).fill("e2e-test-pass");
+  await page.getByLabel("Type the password again").fill("e2e-test-pass");
+  await page.getByRole("button", { name: "Create organisation" }).click();
+  const dashboard = page.getByRole("heading", { name: "Dashboard", level: 1 });
+  const limited = page.getByText(/Too many attempts/);
+  await expect(dashboard.or(limited)).toBeVisible({ timeout: 15_000 });
+  test.skip(await limited.isVisible(), "The hourly limit on new sign-ups was reached; run again later.");
+  await expect(page.getByText("E2E PG", { exact: false }).first()).toBeVisible();
 });

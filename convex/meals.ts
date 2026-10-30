@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { formatInTimeZone } from "date-fns-tz";
 import type { Doc } from "./_generated/dataModel";
 import { appError } from "./lib/errors";
-import { internalMutation, residentMutation, residentQuery, staffMutation } from "./lib/functions";
+import { inScope, internalMutation, residentMutation, residentQuery, staffMutation } from "./lib/functions";
 import { isoDateSchema } from "./lib/inputRules";
 import { loadMenuLookup } from "./lib/menus";
 import { questionFor, residentMessages } from "./lib/messages";
@@ -29,13 +29,15 @@ const MAX_CHOICES_PER_SAVE = 60;
 export const generateUpcoming = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const property = await ctx.db
+    const now = Date.now();
+    let created = 0;
+    for (const property of await ctx.db
       .query("properties")
       .withIndex("by_status", (q) => q.eq("status", "active"))
-      .first();
-    if (property === null) return 0; // Not set up yet; nothing to do.
-    const now = Date.now();
-    return await ensureServices(ctx, property, horizonDates(now, property.timezone), now);
+      .collect()) {
+      created += await ensureServices(ctx, property, horizonDates(now, property.timezone), now);
+    }
+    return created;
   },
 });
 
@@ -57,9 +59,12 @@ export const ensureUpcomingForStaff = staffMutation({
   roles: ["warden"],
   args: {},
   handler: async (ctx) => {
-    const { property } = ctx.staff;
     const now = Date.now();
-    return await ensureServices(ctx, property, horizonDates(now, property.timezone), now);
+    let created = 0;
+    for (const property of inScope(ctx.staff)) {
+      created += await ensureServices(ctx, property, horizonDates(now, property.timezone), now);
+    }
+    return created;
   },
 });
 

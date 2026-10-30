@@ -70,6 +70,20 @@ export const profileSchema = z.object({
   roomNumber: roomNumberSchema,
 });
 
+/** An organisation or property name. */
+export const placeNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Use at least 2 characters.")
+  .max(80, "Use at most 80 characters.");
+
+/** What an Admin enters to create their organisation. */
+export const organizationSignUpSchema = z.object({
+  displayName: displayNameSchema,
+  organizationName: placeNameSchema,
+  propertyName: placeNameSchema,
+});
+
 export const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use the format YYYY-MM-DD.")

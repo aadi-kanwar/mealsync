@@ -2,8 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { AppFrame } from "@/components/app/app-frame";
 import { AppPrompts } from "@/components/app/app-prompts";
 import { Brand } from "@/components/app/brand";
+import { PropertyPicker, PropertyScopeProvider } from "@/components/app/property-scope";
 import { SignOutButton, useMe } from "@/components/app/session";
 import { visibleNav } from "@/components/nav/nav-items";
 import { BottomNav, StaffSidebar } from "@/components/nav/staff-nav";
@@ -39,26 +41,43 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
   const items = visibleNav(me.staffRoles);
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 border-b border-border bg-surface print:hidden">
-        <div className="flex h-14 items-center justify-between gap-3 px-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <Brand />
-            <span className="hidden truncate border-l border-border pl-3 text-xs text-foreground-secondary sm:block">
-              {me.property?.name} · {me.profile?.displayName} ({me.staffRoles.map((r) => ROLE_LABEL[r]).join(", ")})
-            </span>
-          </div>
-          <SignOutButton />
-        </div>
-      </header>
-      <div className="flex flex-1">
-        <StaffSidebar items={items} />
-        <main className="min-w-0 flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-10 print:p-0">
+    <PropertyScopeProvider>
+      <AppFrame
+        header={
+          <header className="border-b border-border bg-surface print:hidden">
+            <div className="flex h-14 items-center justify-between gap-3 px-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <Brand />
+                <span className="hidden truncate border-l border-border pl-3 text-xs text-foreground-secondary lg:block">
+                  {me.staff?.organizationName} · {me.profile?.displayName} ({me.staffRoles.map((r) => ROLE_LABEL[r]).join(", ")})
+                </span>
+              </div>
+              <div className="flex min-w-0 items-center gap-2">
+                <PropertyPicker />
+                {/* On phones, Log out is in the bottom bar's More menu. */}
+                <span className="hidden md:block">
+                  <SignOutButton />
+                </span>
+              </div>
+            </div>
+          </header>
+        }
+        sidebar={<StaffSidebar items={items} />}
+        nav={
+          <BottomNav
+            items={items.filter((item) => item.mobile !== false)}
+            more={{
+              items: items.filter((item) => item.mobile === false),
+              footer: <SignOutButton variant="ghost" full />,
+            }}
+          />
+        }
+      >
+        <main className="px-4 pt-6 pb-10 md:px-8 print:p-0">
           <div className="mx-auto flex max-w-5xl flex-col gap-6">{children}</div>
         </main>
-      </div>
-      <BottomNav items={items.filter((item) => item.mobile !== false)} />
+      </AppFrame>
       <AppPrompts resident={false} />
-    </div>
+    </PropertyScopeProvider>
   );
 }

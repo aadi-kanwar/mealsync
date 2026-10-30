@@ -1,12 +1,14 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
 import { MEAL_TYPES, type MealType } from "@convex/lib/validators";
+import type { Id } from "@convex/_generated/dataModel";
 import { MEAL_ICONS } from "@/components/app/meal-shared";
+import { RequireOneProperty } from "@/components/app/property-scope";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,7 @@ import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/errors";
 import { formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@/lib/convex";
 
 type MenuData = FunctionReturnType<typeof api.menus.get>;
 type Label = "A" | "B";
@@ -52,26 +55,31 @@ export default function MenuPage() {
 }
 
 function Menu() {
-  const data = useQuery(api.menus.get);
   return (
     <>
       <PageHeader
         title="Menu"
-        description="Fill in your two weekly menus. They take turns week by week (Monday to Sunday), and residents see each meal's dishes."
+        description="Fill in this property's two weekly menus. They take turns week by week (Monday to Sunday), and residents see each meal's dishes. Each property has its own menu."
       />
-      {data === undefined ? (
-        <LoadingState rows={4} />
-      ) : (
-        <>
-          <Rotation data={data} />
-          <MenuEditor data={data} />
-        </>
-      )}
+      <RequireOneProperty what="The menu">
+        {(property) => <PropertyMenu key={property.propertyId} propertyId={property.propertyId} />}
+      </RequireOneProperty>
     </>
   );
 }
 
-function Rotation({ data }: { data: MenuData }) {
+function PropertyMenu({ propertyId }: { propertyId: Id<"properties"> }) {
+  const data = useQuery(api.menus.get, { propertyId });
+  if (data === undefined) return <LoadingState rows={4} />;
+  return (
+    <>
+      <Rotation data={data} propertyId={propertyId} />
+      <MenuEditor data={data} propertyId={propertyId} />
+    </>
+  );
+}
+
+function Rotation({ data, propertyId }: { data: MenuData; propertyId: Id<"properties"> }) {
   const setThisWeek = useMutation(api.menus.setThisWeek);
   const [busy, setBusy] = useState<Label | null>(null);
   const week = `${formatDay(data.thisWeekStart, "d MMM")} – ${formatDay(addDays(data.thisWeekStart, 6), "d MMM")}`;
@@ -96,7 +104,7 @@ function Rotation({ data }: { data: MenuData }) {
               if (data.thisWeek === label) return;
               setBusy(label);
               try {
-                await setThisWeek({ label });
+                await setThisWeek({ propertyId, label });
                 toast.success(`This week uses Menu ${label}.`);
               } catch (error) {
                 toast.error(friendlyError(error));
@@ -113,7 +121,7 @@ function Rotation({ data }: { data: MenuData }) {
   );
 }
 
-function MenuEditor({ data }: { data: MenuData }) {
+function MenuEditor({ data, propertyId }: { data: MenuData; propertyId: Id<"properties"> }) {
   const save = useMutation(api.menus.save);
   const saved: Record<Label, Draft> = { A: toDraft(data.menus[0].entries), B: toDraft(data.menus[1].entries) };
   const [drafts, setDrafts] = useState<Record<Label, Draft>>(saved);
@@ -126,7 +134,7 @@ function MenuEditor({ data }: { data: MenuData }) {
     setBusy(true);
     setError(null);
     try {
-      for (const label of changed) await save({ label, entries: toEntries(drafts[label]) });
+      for (const label of changed) await save({ propertyId, label, entries: toEntries(drafts[label]) });
       toast.success(changed.length === 2 ? "Both menus saved." : `Menu ${changed[0]} saved.`);
     } catch (saveError) {
       setError(friendlyError(saveError));
@@ -188,7 +196,7 @@ function MenuEditor({ data }: { data: MenuData }) {
         ))}
       </div>
 
-      <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 -mx-4 flex flex-col gap-3 border-t border-border bg-surface px-4 py-3 md:bottom-0 md:-mx-8 md:px-8">
+      <div className="sticky bottom-0 z-20 -mx-4 -mb-10 flex flex-col gap-3 border-t border-border bg-surface px-4 py-3 md:-mx-8 md:px-8">
         {error ? <Banner tone="danger" title="Not saved">{error}</Banner> : null}
         <div className="flex items-center gap-3">
           <p
@@ -207,3 +215,4 @@ function MenuEditor({ data }: { data: MenuData }) {
     </section>
   );
 }
+
