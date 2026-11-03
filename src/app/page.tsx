@@ -40,9 +40,6 @@ function Landing() {
         <h1 className="font-serif text-3xl tracking-tight">
           Every meal you skip is still <em className="text-primary-soft">cooked for you.</em>
         </h1>
-        <p className="text-foreground-secondary">
-          Unless you tell us. Food that isn&apos;t eaten can&apos;t be served the next day, so it ends up in the bin.
-        </p>
       </div>
       <div className="flex flex-col gap-2">
         <Button asChild width="full">
