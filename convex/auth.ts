@@ -6,6 +6,7 @@ import type { DataModel } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { FAILED_ATTEMPTS_LIMIT } from "./authLimits";
 import { appError } from "./lib/errors";
+import { SESSION_INACTIVE_MS, SESSION_TOTAL_MS } from "./lib/sessions";
 import { normalizePhone, organizationSignUpSchema, passwordProblem, profileSchema } from "./lib/inputRules";
 
 export const PHONE_PASSWORD_PROVIDER = "phone-password";
@@ -125,6 +126,9 @@ async function signInExisting(ctx: ActionCtx, phone: string, password: string) {
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [PhonePassword],
+  // Stay signed in: up to 90 days, or until Dine isn't opened for 30 days.
+  // Signing out, or a password reset or change, still ends it at once.
+  session: { totalDurationMs: SESSION_TOTAL_MS, inactiveDurationMs: SESSION_INACTIVE_MS },
   signIn: {
     // Convex Auth's own per-account limit. Kept well above ours
     // (FAILED_ATTEMPTS_LIMIT per 15 minutes) so ours always applies first and

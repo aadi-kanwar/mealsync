@@ -3,6 +3,7 @@ import {
   createRouteMatcher,
   nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
+import { LOGIN_COOKIE_MAX_AGE_SECONDS } from "@convex/lib/sessions";
 
 /**
  * Runs before every page. Sends signed-out visitors to /signin, and signed-in
@@ -23,6 +24,11 @@ export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) 
   // The landing page is public; signed-in people are sent on from there.
   if (isLandingPage(request)) return undefined;
   if (!signedIn) return nextjsMiddlewareRedirect(request, "/signin");
+}, {
+  // Without an expiry the login cookies are "session cookies", which phones
+  // delete whenever the browser or home-screen app is closed: that signed
+  // people out. They now last as long as the login itself.
+  cookieConfig: { maxAge: LOGIN_COOKIE_MAX_AGE_SECONDS },
 });
 
 export const config = {
