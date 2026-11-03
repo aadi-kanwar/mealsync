@@ -22,7 +22,9 @@ cooking targets, buffers, actuals or kitchen reports.
 - **Create an account** (residents): choose the **organisation** and **PG**
   from dropdowns, then full name, room number, mobile number and a
   password, all on one form. These are asked only once. After that,
-  **sign in** needs just the mobile number and password.
+  **sign in** needs just the mobile number and password. People stay signed in on
+  that phone (even after closing the browser) for up to 90 days, or until
+  Dine hasn't been opened there for 30 days.
 - **New residents wait for approval.** After signing up a person sees
   "Waiting for approval". They can't choose meals and aren't counted until a
   Warden or Admin approves them.

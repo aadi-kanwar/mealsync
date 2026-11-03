@@ -218,3 +218,19 @@ async function t_internalSanity() {
   });
   expect(result.allowed).toBe(true);
 }
+
+describe("staying signed in", () => {
+  test("a login lasts 90 days (or 30 days without opening Dine), not a few hours", async () => {
+    const t = await setup();
+    const before = Date.now();
+    await signIn(t, "signUp", "9876543210", PASSWORD);
+    const [session] = await t.run((ctx) => ctx.db.query("authSessions").collect());
+    const days = (session.expirationTime - before) / 86_400_000;
+    expect(days).toBeGreaterThan(89.9);
+    expect(days).toBeLessThan(90.1);
+    const [refresh] = await t.run((ctx) => ctx.db.query("authRefreshTokens").collect());
+    const idleDays = (refresh.expirationTime - before) / 86_400_000;
+    expect(idleDays).toBeGreaterThan(29.9);
+    expect(idleDays).toBeLessThan(30.1);
+  });
+});
