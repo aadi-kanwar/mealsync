@@ -56,6 +56,8 @@ function DayMeals({ data, now, today, timezone }: ResidentContext & { data: MyDa
 
   const open = day.meals.filter((meal) => isOpen(day, meal, now));
   const cutoff = open.length > 0 ? Math.min(...open.map((meal) => meal.cutoffAt)) : null;
+  // Meals can close at different times; each meal row then shows its own.
+  const oneDeadline = new Set(open.map((meal) => meal.cutoffAt)).size <= 1;
   const total = day.meals.filter((meal) => !meal.cancelled).length;
   const answered = answeredCount(day, drafts);
   const urgent =
@@ -71,7 +73,9 @@ function DayMeals({ data, now, today, timezone }: ResidentContext & { data: MyDa
         >
           <div className="flex items-center gap-3">
             <Icon icon={urgent ? AlarmClock : Clock} className={urgent ? "text-warning" : "text-foreground-secondary"} />
-            <p className="flex-1 font-medium">Choose by {formatWhen(cutoff, today, timezone)}</p>
+            <p className="flex-1 font-medium">
+              {oneDeadline ? "Choose by" : "Next deadline:"} {formatWhen(cutoff, today, timezone)}
+            </p>
             <p className={cn("text-sm tabular", urgent ? "font-medium text-warning" : "text-foreground-secondary")}>
               {formatDuration(cutoff - now)} left
             </p>

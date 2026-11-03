@@ -15,7 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDay } from "@/lib/format";
+import { formatDay, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@/lib/convex";
 
@@ -54,8 +54,96 @@ function Profile(ctx: ResidentContext) {
         </Link>
       </Button>
       <PhoneRemindersCard />
+      <Saves {...ctx} />
       <History {...ctx} />
       <SignOutButton variant="secondary" />
+    </>
+  );
+}
+
+const SELECTION_TEXT = { yes: "Yes", no: "No", none: "Not answered" } as const;
+
+/** Every time they saved a change: which day, when, and what changed. Saves that changed nothing aren't listed. */
+function Saves(ctx: ResidentContext) {
+  const [pages, setPages] = useState<(number | undefined)[]>([undefined]);
+  return (
+    <section aria-labelledby="saves" className="flex flex-col gap-2">
+      <div className="flex flex-col gap-0.5">
+        <h2 id="saves" className="font-serif text-2xl tracking-tight">
+          Saves
+        </h2>
+        <p className="text-sm text-foreground-secondary">Each time you saved a change, newest first.</p>
+      </div>
+      <Card>
+        <ul className="divide-y divide-border" aria-label="Your saves">
+          {pages.map((before, i) => (
+            <SavesPage
+              key={before ?? "first"}
+              before={before}
+              first={i === 0}
+              last={i === pages.length - 1}
+              onMore={(next) => setPages((current) => [...current, next])}
+              {...ctx}
+            />
+          ))}
+        </ul>
+      </Card>
+    </section>
+  );
+}
+
+function SavesPage({
+  before,
+  first,
+  last,
+  onMore,
+  today,
+  timezone,
+}: ResidentContext & { before: number | undefined; first: boolean; last: boolean; onMore: (before: number) => void }) {
+  const data = useQuery(api.meals.myChanges, before === undefined ? {} : { before });
+  if (data === undefined) {
+    return (
+      <li className="px-4 py-3">
+        <Skeleton className="h-5 w-full" />
+      </li>
+    );
+  }
+  return (
+    <>
+      {first && data.saves.length === 0 ? (
+        <li className="px-4 py-3 text-sm text-foreground-secondary">Nothing saved yet.</li>
+      ) : null}
+      {data.saves.map((save) => (
+        <li key={`${save.savedAt}-${save.date}-${save.byStaff ?? ""}`} className="flex flex-col gap-1.5 px-4 py-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <span className="text-sm font-medium">{formatDay(save.date, "EEEE d MMM")}</span>
+            <span className="text-xs text-foreground-secondary">
+              {save.byStaff ? `Changed by the Warden (${save.byStaff}) ` : "Saved "}
+              {formatWhen(save.savedAt, today, timezone)}
+            </span>
+          </div>
+          <ul className="flex flex-wrap gap-1.5" aria-label="Changes">
+            {save.changes.map((change) => (
+              <li
+                key={change.mealType}
+                className="rounded-sm border border-border bg-subtle px-2 py-0.5 text-xs"
+              >
+                <span className="font-medium">{change.meal}:</span> {SELECTION_TEXT[change.from]} →{" "}
+                <span className={cn("font-medium", change.to === "yes" ? "text-primary-text" : "text-foreground")}>
+                  {SELECTION_TEXT[change.to]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+      {last && data.before !== null ? (
+        <li>
+          <Button variant="ghost" width="full" onClick={() => onMore(data.before!)}>
+            Show earlier saves
+          </Button>
+        </li>
+      ) : null}
     </>
   );
 }

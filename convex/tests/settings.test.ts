@@ -93,7 +93,7 @@ test("the Admin changes meal times and the deadline; only meals still open take 
     const todayBefore = await mealOn("2026-10-27", "lunch");
 
     const view = await admin.as.query(api.settings.get, {});
-    expect(view.cutoff).toEqual({ daysBefore: 0, time: "06:00" });
+    expect(view.meals.map((m) => m.cutoff)).toEqual(Array(4).fill({ daysBefore: 0, time: "06:00" }));
     expect(view.warnMinutes).toBe(120);
     expect(view.meals.map((m) => [m.mealType, m.displayName, m.serviceTime, m.endTime, m.active, m.serviceDays])).toEqual([
       ["breakfast", "Breakfast", "07:30", "09:30", true, ALL_DAYS],
@@ -109,10 +109,10 @@ test("the Admin changes meal times and the deadline; only meals still open take 
       serviceDays,
       active,
     }));
+    // `cutoff` here is given to every meal (each meal's own deadline is tested separately below).
     const save = (changes: Partial<(typeof meals)[number]>[] = [], cutoff = { daysBefore: 0, time: "06:00" }, warnMinutes = 120) =>
       admin.as.mutation(api.settings.updateMeals, {
-        meals: meals.map((m) => ({ ...m, ...changes.find((c) => c.mealType === m.mealType) })),
-        cutoff,
+        meals: meals.map((m) => ({ ...m, cutoff, ...changes.find((c) => c.mealType === m.mealType) })),
         warnMinutes,
       });
 
@@ -128,7 +128,7 @@ test("the Admin changes meal times and the deadline; only meals still open take 
     // Today's meals had already closed: unchanged.
     expect(await mealOn("2026-10-27", "lunch")).toEqual(todayBefore);
     const after = await admin.as.query(api.settings.get, {});
-    expect(after.cutoff).toEqual({ daysBefore: 1, time: "22:00" });
+    expect(after.meals.map((m) => m.cutoff)).toEqual(Array(4).fill({ daysBefore: 1, time: "22:00" }));
     expect(after.warnMinutes).toBe(60);
     const audit = await t.run((ctx) => ctx.db.query("auditLogs").collect());
     expect(audit.at(-1)).toMatchObject({ action: "settings.meal_times_updated" });
@@ -170,8 +170,95 @@ test("the Admin changes meal times and the deadline; only meals still open take 
 
     const warden = await createStaff(t, "warden");
     expect(
-      await errorCode(warden.as.mutation(api.settings.updateMeals, { meals: [], cutoff: { daysBefore: 0, time: "06:00" }, warnMinutes: 120 })),
+      await errorCode(warden.as.mutation(api.settings.updateMeals, { meals: [], warnMinutes: 120 })),
     ).toBe("FORBIDDEN");
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("each meal has its own deadline; a meal closes on its own, the others stay open", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(Date.UTC(2026, 9, 27, 15, 32)); // Tue 27 Oct, 21:02 IST
+  try {
+    const t = await setupTest();
+    await createProperty(t);
+    await t.mutation(internal.meals.generateUpcoming, {});
+    const admin = await createStaff(t, "admin");
+    const resident = await createActiveResident(t);
+    const view = await admin.as.query(api.settings.get, {});
+    const deadlines: Record<string, { daysBefore: number; time: string }> = {
+      breakfast: { daysBefore: 1, time: "21:00" }, // already passed for tomorrow
+      lunch: { daysBefore: 0, time: "10:00" },
+      snacks: { daysBefore: 0, time: "15:00" },
+      dinner: { daysBefore: 0, time: "18:00" },
+    };
+    await admin.as.mutation(api.settings.updateMeals, {
+      meals: view.meals.map(({ mealType, displayName, serviceTime, endTime, serviceDays, active }) => ({
+        mealType,
+        displayName,
+        serviceTime,
+        endTime,
+        serviceDays,
+        active,
+        cutoff: deadlines[mealType],
+      })),
+      warnMinutes: 120,
+    });
+    expect((await admin.as.query(api.settings.get, {})).meals.map((m) => m.cutoff)).toEqual(Object.values(deadlines));
+
+    const tomorrow = await t.run(async (ctx) =>
+      Object.fromEntries(
+        (await ctx.db.query("mealServices").collect())
+          .filter((s) => s.serviceDate === "2026-10-28")
+          .map((s) => [s.mealType, s]),
+      ),
+    );
+    // Breakfast's new deadline (21:00 tonight) has passed, so it keeps the old one; the rest move.
+    expect(tomorrow.breakfast.cutoffAt).toBe(Date.UTC(2026, 9, 28, 0, 30)); // 06:00 IST, unchanged
+    expect(tomorrow.lunch.cutoffAt).toBe(Date.UTC(2026, 9, 28, 4, 30)); // 10:00 IST
+    expect(tomorrow.dinner.cutoffAt).toBe(Date.UTC(2026, 9, 28, 12, 30)); // 18:00 IST
+
+    // Next morning at 11:00 IST: lunch has closed, snacks and dinner haven't.
+    vi.setSystemTime(Date.UTC(2026, 9, 28, 5, 30));
+    const choose = (mealType: string, selection: "yes" | "no") =>
+      errorCode(resident.as.mutation(api.meals.saveChoices, { choices: [{ mealServiceId: tomorrow[mealType]._id, selection }] }));
+    expect(await choose("lunch", "yes")).toBe("CUTOFF_PASSED");
+    expect(await choose("snacks", "yes")).toBe("NO_ERROR");
+    expect(await choose("dinner", "no")).toBe("NO_ERROR");
+    // One closed meal in a save stops the whole save: nothing half-saved.
+    expect(
+      await errorCode(
+        resident.as.mutation(api.meals.saveChoices, {
+          choices: [
+            { mealServiceId: tomorrow.dinner._id, selection: "yes" },
+            { mealServiceId: tomorrow.lunch._id, selection: "yes" },
+          ],
+        }),
+      ),
+    ).toBe("CUTOFF_PASSED");
+    const dinner = await t.run(async (ctx) =>
+      (await ctx.db.query("mealResponses").collect()).find((r) => r.mealServiceId === tomorrow.dinner._id),
+    );
+    expect(dinner?.selection).toBe("no");
+
+    const bad = (cutoff: { daysBefore: number; time: string }) =>
+      errorCode(
+        admin.as.mutation(api.settings.updateMeals, {
+          meals: [{ ...view.meals[0], cutoff }].map(({ mealType, displayName, serviceTime, endTime, serviceDays, active, cutoff }) => ({
+            mealType,
+            displayName,
+            serviceTime,
+            endTime,
+            serviceDays,
+            active,
+            cutoff,
+          })),
+          warnMinutes: 120,
+        }),
+      );
+    expect(await bad({ daysBefore: 2, time: "06:00" })).toBe("INVALID_INPUT");
+    expect(await bad({ daysBefore: 0, time: "6 AM" })).toBe("INVALID_INPUT");
   } finally {
     vi.useRealTimers();
   }

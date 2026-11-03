@@ -38,6 +38,9 @@ cooking targets, buffers, actuals or kitchen reports.
     many meals are still unanswered (or a ✓ when done, a lock when closed).
     Tap a day, choose, and one **Save** saves every day you changed.
   - *Profile*: their name, room and number, **Change password**,
+    **Saves** (every time they saved a change: the day, when, and what
+    changed, e.g. "Lunch: Not answered → Yes"; saves that changed nothing
+    aren't listed; changes by the Warden are marked),
     **Phone reminders** (turn on/off for this phone), a short
     **History** (one line per past day: B L S D with ✓ Yes, ✕ No or – not
     answered), and **Log out**.
@@ -54,7 +57,8 @@ cooking targets, buffers, actuals or kitchen reports.
     Snacks 5:00–6:00 PM, Dinner 8:00–9:30 PM, each to be chosen by **6:00 AM
     on the same day**. The Admin changes these in **Settings → Meals &
     deadline**: each meal's name, whether it's served, which days, its
-    times, the deadline (any time, on the day or the day before) and how
+    times, **its own deadline** (any time, on the day or the day before;
+    after it, that meal can't be changed while the others stay open) and how
     long before the deadline residents' screens turn amber.
 - **Add to home screen:** after signing in, everyone gets a pop-up asking to
   add Dine as an app on their home screen / app drawer, with step-by-step

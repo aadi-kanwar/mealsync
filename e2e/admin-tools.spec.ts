@@ -44,7 +44,10 @@ test("the Admin's settings are in sections; meal times, deadline and reminders c
   await expect(page.getByLabel("Served").first()).toBeChecked();
   const breakfastDays = page.getByRole("group", { name: "Days Breakfast is served" });
   await expect(breakfastDays.getByRole("button", { name: "Sun" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Time", { exact: true })).toHaveValue(/^\d\d:\d\d$/);
+  // Each meal has its own deadline.
+  const breakfastDeadline = page.getByRole("group", { name: "Breakfast's deadline" });
+  await expect(breakfastDeadline.getByLabel("Time", { exact: true })).toHaveValue(/^\d\d:\d\d$/);
+  await expect(page.getByRole("group", { name: /'s deadline$/ })).toHaveCount(4);
   await expect(page.getByLabel("Warn residents")).toHaveValue(/^\d+$/);
   // Editing enables Save; nothing is saved here (shared dev data).
   await expect(page.getByRole("button", { name: "Save meals" })).toBeDisabled();
