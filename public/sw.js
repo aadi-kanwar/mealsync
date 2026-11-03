@@ -11,8 +11,12 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Dine", {
       body: data.body || "Please choose your meals.",
-      icon: "/icon.png",
-      badge: "/icon.png",
+      // The Livoza logo beside the message (Android, computers). iPhones
+      // always show the Home Screen icon instead.
+      icon: "/icon-192.png",
+      // The small status-bar icon on Android: a white silhouette of the logo
+      // (Android shows only its shape, so a full-colour picture would be a blank square).
+      badge: "/notification-badge.png",
       tag: "meal-reminder",
       data: { url: data.url || "/home" },
     }),
