@@ -55,3 +55,22 @@ test("the bottom bar shows where you are; More holds Staff, Menu, Reports, Setti
   await page.getByRole("dialog", { name: "More" }).getByRole("button", { name: "Log out" }).click();
   await expect(page).toHaveURL(/\/signin$/);
 });
+
+test("staying signed in: the login survives closing the browser (cookies last 90 days)", async ({ page, context }) => {
+  await signIn(page, ADMIN_PHONE);
+  const now = Date.now() / 1000;
+  const login = (await context.cookies()).filter((c) => c.name.includes("__convexAuth"));
+  expect(login.map((c) => c.name).sort()).toEqual(["__convexAuthJWT", "__convexAuthRefreshToken"]);
+  for (const cookie of login) {
+    // Not a "session cookie" (expires -1), which phones delete when the browser closes.
+    expect(cookie.expires, cookie.name).toBeGreaterThan(now + 89 * 86_400);
+    expect(cookie.httpOnly).toBe(true);
+  }
+  // A fresh browser with those cookies is still signed in.
+  const reopened = await context.browser()!.newContext({ storageState: await context.storageState() });
+  const again = await reopened.newPage();
+  await again.goto(page.url().replace(/\/staff.*/, "/staff"));
+  await expect(again).toHaveURL(/\/staff$/);
+  await expect(again.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
+  await reopened.close();
+});

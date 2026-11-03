@@ -60,7 +60,7 @@ test("the Admin's settings are in sections; meal times, deadline and reminders c
     if (i === -1) return false;
     await page.getByRole("button", { name: `Remove reminder ${i + 1}` }).click();
     await page.getByRole("button", { name: "Save reminders" }).click();
-    await expect(page.getByText("Reminders go out at the new times.").first()).toBeVisible();
+    await expect(page.getByText(/Reminders go out at the new times/).first()).toBeVisible();
     return true;
   };
   await removeTestTime(); // left over from an interrupted run
@@ -69,7 +69,7 @@ test("the Admin's settings are in sections; meal times, deadline and reminders c
   await page.getByRole("button", { name: "Add a time" }).click();
   await times.nth(before).fill("19:30");
   await page.getByRole("button", { name: "Save reminders" }).click();
-  await expect(page.getByText("Reminders go out at the new times.").first()).toBeVisible();
+  await expect(page.getByText(/Reminders go out at the new times/).first()).toBeVisible();
   await page.reload();
   await expect(times).toHaveCount(before + 1);
   // Put it back.
