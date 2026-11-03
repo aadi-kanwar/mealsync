@@ -4,10 +4,20 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { appError } from "./lib/errors";
-import { internalMutation, residentMutation, signedInMutation, signedInQuery, viewerQuery } from "./lib/functions";
+import {
+  getProfile,
+  getResidentRecord,
+  getStaffAccess,
+  internalMutation,
+  oneProperty,
+  signedInMutation,
+  signedInQuery,
+  staffMutation,
+  viewerQuery,
+} from "./lib/functions";
 import { loadRoster } from "./lib/headcount";
 import { ineligibilityOn, servicesOn } from "./lib/meals";
-import { reminderSettings } from "./lib/reminders";
+import { reminderSettings, reminderText } from "./lib/reminders";
 import { addDays, localDateString } from "./lib/time";
 
 /** How late a reminder may still go out (e.g. right after a deploy), in minutes. */
@@ -31,12 +41,22 @@ function checkSubscription(args: { endpoint: string; p256dh: string; auth: strin
   }
 }
 
-/** Saves this phone/browser to receive reminders. Approved residents only. */
-export const subscribe = residentMutation({
+/**
+ * Saves this phone/browser to receive notifications. Approved residents get
+ * meal reminders; staff can turn it on to receive test notifications.
+ */
+export const subscribe = signedInMutation({
   args: { endpoint: v.string(), p256dh: v.string(), auth: v.string() },
   handler: async (ctx, args) => {
     checkSubscription(args);
-    const { property, userId } = ctx.resident;
+    const { userId } = ctx.viewer;
+    const profile = await getProfile(ctx, userId);
+    if (profile === null || profile.status !== "active") throw appError("FORBIDDEN");
+    const resident = await getResidentRecord(ctx, userId);
+    const staff = await getStaffAccess(ctx, userId);
+    const property =
+      resident?.status === "active" ? await ctx.db.get(resident.propertyId) : (staff?.properties[0] ?? null);
+    if (property === null) throw appError("FORBIDDEN");
     const existing = await ctx.db
       .query("pushSubscriptions")
       .withIndex("by_endpoint", (q) => q.eq("endpoint", args.endpoint))
@@ -177,16 +197,44 @@ async function sendDueAt(ctx: MutationCtx, property: Doc<"properties">): Promise
     recipients: devices.length,
   });
   if (targets !== null && devices.length > 0) {
-    const by = formatInTimeZone(new Date(targets.cutoff), property.timezone, "h:mm a");
-    await ctx.scheduler.runAfter(0, internal.push.send, {
-      devices,
-      title: "Dine: choose your meals",
-      body: `You haven't chosen all your meals for ${targets.isToday ? "today" : "tomorrow"} yet. Please answer by ${by}, so nothing is cooked to be thrown away.`,
-      url: "/home",
+    const text = reminderText(property, {
+      day: targets.isToday ? "today" : "tomorrow",
+      deadline: formatInTimeZone(new Date(targets.cutoff), property.timezone, "h:mm a"),
     });
+    await ctx.scheduler.runAfter(0, internal.push.send, { devices, ...text, url: "/home" });
   }
   return devices.length;
 }
+
+/**
+ * Sends the chosen property's reminder, exactly as residents would get it,
+ * to the caller's own phones/browsers, so the Admin can check notifications
+ * really arrive. Admin only.
+ */
+export const sendTest = staffMutation({
+  roles: [],
+  args: {},
+  handler: async (ctx) => {
+    const property = oneProperty(ctx.staff);
+    const devices = (
+      await ctx.db
+        .query("pushSubscriptions")
+        .withIndex("by_user", (q) => q.eq("userId", ctx.staff.userId))
+        .collect()
+    ).map((sub) => ({ subscriptionId: sub._id, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth }));
+    if (devices.length === 0) {
+      throw appError("NOT_FOUND", "Turn on notifications on this phone first, then send the test.");
+    }
+    const now = Date.now();
+    const targets = await reminderTargets(ctx, property, now);
+    const text = reminderText(property, {
+      day: targets === null || !targets.isToday ? "tomorrow" : "today",
+      deadline: formatInTimeZone(new Date(targets?.cutoff ?? now), property.timezone, "h:mm a"),
+    });
+    await ctx.scheduler.runAfter(0, internal.push.send, { devices, ...text, url: "/staff/settings?section=reminders" });
+    return { devices: devices.length };
+  },
+});
 
 /** Removes devices the push service says no longer exist. */
 export const removeSubscriptions = internalMutation({

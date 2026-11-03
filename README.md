@@ -70,6 +70,10 @@ cooking targets, buffers, actuals or kitchen reports.
   if they still haven't chosen all meals for the next day that's open. Works
   in Chrome on Android; on iPhone, Dine must first be added to the Home
   Screen (Share → Add to Home Screen).
+  The Admin writes each PG's notification in **Settings → Phone
+  reminders** (title and message; Dine fills in `{day}` and `{deadline}`),
+  sees a preview, and can **Send me a test** to their own phone to check it
+  really arrives.
 - **Staff screens** (`/staff`, Admin and Warden):
   - *Choosing a property*: with more than one PG, the header has a picker:
     **All properties** or one PG. Dashboard, Responses, Residents, New

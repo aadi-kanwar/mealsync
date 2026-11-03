@@ -60,6 +60,10 @@ export default defineSchema({
     // property-local times ("HH:mm") they go out. Absent: defaults apply.
     remindersEnabled: v.optional(v.boolean()),
     reminderTimes: v.optional(v.array(v.string())),
+    // The notification's title and message, written by the Admin; {day} and
+    // {deadline} are filled in when it goes out. Absent: defaults apply.
+    reminderTitle: v.optional(v.string()),
+    reminderMessage: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_org_slug", ["organizationId", "slug"])

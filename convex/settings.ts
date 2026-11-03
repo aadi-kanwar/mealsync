@@ -8,7 +8,7 @@ import {
   QUESTION_COUNT,
   residentMessages,
 } from "./lib/messages";
-import { MAX_REMINDER_TIMES, reminderSettings } from "./lib/reminders";
+import { MAX_REMINDER_TIMES, reminderSettings, reminderTextProblem } from "./lib/reminders";
 import { ensureServices, horizonDates, slotRunsOn } from "./lib/meals";
 import { checkName, createProperty } from "./lib/property";
 import { computeCutoffAt, isClock, localDateString } from "./lib/time";
@@ -102,15 +102,22 @@ export const get = staffQuery({
       cutoff: slots[0]?.cutoffRule ?? { daysBefore: 0, time: "06:00" },
       warnMinutes: property.reminderSettings.bannerMinutesBeforeCutoff,
       reminders: reminderSettings(property),
-      // How many residents have reminders turned on (on at least one phone).
-      residentsWithReminders: new Set(
-        (
-          await ctx.db
-            .query("pushSubscriptions")
-            .withIndex("by_property", (q) => q.eq("propertyId", property._id))
-            .collect()
-        ).map((s) => s.userId),
-      ).size,
+      // How many current residents have reminders turned on (on at least one phone).
+      residentsWithReminders: await (async () => {
+        const residents = new Set(
+          (
+            await ctx.db
+              .query("residents")
+              .withIndex("by_property_status", (q) => q.eq("propertyId", property._id).eq("status", "active"))
+              .collect()
+          ).map((r) => r.userId),
+        );
+        const subscribed = await ctx.db
+          .query("pushSubscriptions")
+          .withIndex("by_property", (q) => q.eq("propertyId", property._id))
+          .collect();
+        return new Set(subscribed.map((s) => s.userId).filter((id) => residents.has(id))).size;
+      })(),
     };
   },
 });
@@ -333,7 +340,13 @@ export const updateMeals = staffMutation({
 /** Phone reminders: on/off and when they go out (property-local times). Admin only; audited. */
 export const updateReminders = staffMutation({
   roles: [],
-  args: { enabled: v.boolean(), times: v.array(v.string()) },
+  args: {
+    enabled: v.boolean(),
+    times: v.array(v.string()),
+    /** The notification's title and message; omitted ones stay as they are. */
+    title: v.optional(v.string()),
+    message: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const times = [...new Set(args.times.map((t) => t.trim()))].sort();
     if (times.some((t) => !isClock(t))) throw appError("INVALID_INPUT", "Enter times like 21:00.");
@@ -343,14 +356,24 @@ export const updateReminders = staffMutation({
     if (args.enabled && times.length === 0) throw appError("INVALID_INPUT", "Add at least one reminder time.");
     const { userId } = ctx.staff;
     const property = oneProperty(ctx.staff);
-    await ctx.db.patch(property._id, { remindersEnabled: args.enabled, reminderTimes: times });
+    const current = reminderSettings(property);
+    const title = (args.title ?? current.title).trim().replace(/\s+/g, " ");
+    const message = (args.message ?? current.message).trim().replace(/\s+/g, " ");
+    const problem = reminderTextProblem(title, message);
+    if (problem !== null) throw appError("INVALID_INPUT", problem);
+    await ctx.db.patch(property._id, {
+      remindersEnabled: args.enabled,
+      reminderTimes: times,
+      reminderTitle: title,
+      reminderMessage: message,
+    });
     await writeAudit(ctx, {
       property,
       actorUserId: userId,
       action: "settings.reminders_updated",
       entityType: "properties",
       entityId: property._id,
-      metadata: { before: reminderSettings(property), after: { enabled: args.enabled, times } },
+      metadata: { before: current, after: { enabled: args.enabled, times, title, message } },
     });
     return null;
   },
