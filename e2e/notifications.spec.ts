@@ -44,10 +44,21 @@ test("a pushed reminder shows as a notification, with its title and message", as
   await expect
     .poll(() =>
       page.evaluate(async () =>
-        (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => [n.title, n.body]),
+        (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => [
+          n.title,
+          n.body,
+          new URL(n.icon).pathname,
+          new URL(n.badge).pathname,
+        ]),
       ),
     )
-    .toEqual([["Sunrise PG", "Meals for tomorrow close at 6:00 AM."]]);
+    .toEqual([["Sunrise PG", "Meals for tomorrow close at 6:00 AM.", "/icon-192.png", "/notification-badge.png"]]);
+  // Both pictures are really there to fetch.
+  for (const path of ["/icon-192.png", "/notification-badge.png"]) {
+    const response = await page.request.get(path);
+    expect(response.status(), path).toBe(200);
+    expect(response.headers()["content-type"]).toBe("image/png");
+  }
 });
 
 test("the Admin writes the notification text and sees a preview", async ({ page }) => {
