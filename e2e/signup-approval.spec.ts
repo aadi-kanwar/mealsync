@@ -141,6 +141,10 @@ test("new sign-up waits for approval, then the Warden approves them", async ({ b
   await resident.getByRole("link", { name: "Profile" }).click();
   await expect(resident.getByText(name, { exact: true })).toBeVisible();
   await expect(resident.getByText("E2E-2", { exact: true })).toBeVisible();
+  // Each save that changed something, with what changed.
+  await expect(resident.getByRole("heading", { name: "Saves" })).toBeVisible();
+  const saves = resident.getByRole("list", { name: "Your saves" });
+  await expect(saves.getByRole("listitem").first()).toContainText("→");
   await expect(resident.getByRole("heading", { name: "History" })).toBeVisible();
   await expect(resident.getByText("No past days yet.")).toBeVisible();
   await expect(resident.getByRole("button", { name: "Log out" })).toBeVisible();

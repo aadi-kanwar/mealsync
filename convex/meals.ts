@@ -162,6 +162,64 @@ function cutoffMessage(service: Doc<"mealServices">, timezone: string): string {
   return `Choices for ${meal} on ${day} closed at ${closed}. Contact the Warden to change it.`;
 }
 
+/** Log entries read per page of the save history. */
+const CHANGES_PER_PAGE = 80;
+
+/**
+ * The resident's save history, newest first: one entry per save per meal
+ * day, listing what changed (from → to). A save that changed nothing isn't
+ * in it (it writes nothing to the activity log). Changes made by staff are
+ * marked. Pass `before` (from the previous page) to load older saves. Only
+ * ever the caller's own history.
+ */
+export const myChanges = residentQuery({
+  args: { before: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const { resident } = ctx.resident;
+    const entries = await ctx.db
+      .query("mealActivityLog")
+      .withIndex("by_resident_createdAt", (q) =>
+        args.before === undefined ? q.eq("residentId", resident._id) : q.eq("residentId", resident._id).lt("createdAt", args.before),
+      )
+      .order("desc")
+      .take(CHANGES_PER_PAGE);
+    // A full page may have cut a save in two: leave its last save for the next page.
+    let page = entries;
+    let more = false;
+    if (entries.length === CHANGES_PER_PAGE) {
+      more = true;
+      const last = entries[entries.length - 1].createdAt;
+      const trimmed = entries.filter((e) => e.createdAt !== last);
+      if (trimmed.length > 0) page = trimmed;
+    }
+    const saves: {
+      savedAt: number;
+      date: string;
+      byStaff: string | null;
+      changes: { mealType: Doc<"mealServices">["mealType"]; meal: string; from: "yes" | "no" | "none"; to: "yes" | "no" }[];
+    }[] = [];
+    for (const entry of page) {
+      const byStaff = entry.source === "staff_correction" ? entry.actorName : null;
+      let save = saves.find((x) => x.savedAt === entry.createdAt && x.date === entry.serviceDate && x.byStaff === byStaff);
+      if (save === undefined) {
+        save = { savedAt: entry.createdAt, date: entry.serviceDate, byStaff, changes: [] };
+        saves.push(save);
+      }
+      save.changes.push({
+        mealType: entry.mealType,
+        meal: entry.mealDisplayName,
+        from: entry.previousSelection,
+        to: entry.newSelection,
+      });
+    }
+    const order = ["breakfast", "lunch", "snacks", "dinner"];
+    for (const save of saves) save.changes.sort((a, b) => order.indexOf(a.mealType) - order.indexOf(b.mealType));
+    // Newest save first; one save covering several days lists them in date order.
+    saves.sort((a, b) => b.savedAt - a.savedAt || a.date.localeCompare(b.date));
+    return { saves, before: more ? Math.min(...page.map((e) => e.createdAt)) : null };
+  },
+});
+
 /**
  * Saves the resident's Yes/No choices. The server's clock decides whether
  * each choice is before its cutoff. Checking the cutoff, saving and writing

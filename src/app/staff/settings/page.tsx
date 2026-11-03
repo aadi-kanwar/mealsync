@@ -270,27 +270,21 @@ type MealSetting = SettingsData["meals"][number];
 function MealsForm({ initial, propertyId }: FormProps) {
   const update = useMutation(api.settings.updateMeals);
   const [meals, setMeals] = useState(initial.meals);
-  const [daysBefore, setDaysBefore] = useState(initial.cutoff.daysBefore);
-  const [cutoffTime, setCutoffTime] = useState(initial.cutoff.time);
   const [warnMinutes, setWarnMinutes] = useState(initial.warnMinutes);
-  const changed =
-    JSON.stringify(meals) !== JSON.stringify(initial.meals) ||
-    daysBefore !== initial.cutoff.daysBefore ||
-    cutoffTime !== initial.cutoff.time ||
-    warnMinutes !== initial.warnMinutes;
+  const changed = JSON.stringify(meals) !== JSON.stringify(initial.meals) || warnMinutes !== initial.warnMinutes;
   const { busy, error, onSubmit } = useSave(
     () =>
       update({
         propertyId,
-        meals: meals.map(({ mealType, displayName, serviceTime, endTime, serviceDays, active }) => ({
+        meals: meals.map(({ mealType, displayName, serviceTime, endTime, serviceDays, active, cutoff }) => ({
           mealType,
           displayName,
           serviceTime,
           endTime,
           serviceDays,
           active,
+          cutoff,
         })),
-        cutoff: { daysBefore, time: cutoffTime },
         warnMinutes,
       }),
     (result) => {
@@ -365,6 +359,47 @@ function MealsForm({ initial, propertyId }: FormProps) {
                       })}
                     </div>
                   </div>
+                  <div role="group" aria-label={`${meal.displayName || "This meal"}'s deadline`} className="flex flex-col gap-1.5">
+                    <span className="text-sm font-medium">Deadline to choose</span>
+                    <div className="grid grid-cols-2 items-end gap-3">
+                      <Field id={`${meal.mealType}-cutoff-day`} label="Day">
+                        {(p) => (
+                          <NativeSelect
+                            {...p}
+                            value={meal.cutoff.daysBefore}
+                            onChange={(e) => setMeal(i, { cutoff: { ...meal.cutoff, daysBefore: Number(e.target.value) } })}
+                          >
+                            <option value={0}>On the day</option>
+                            <option value={1}>The day before</option>
+                          </NativeSelect>
+                        )}
+                      </Field>
+                      <Field id={`${meal.mealType}-cutoff-time`} label="Time">
+                        {(p) => (
+                          <Input
+                            {...p}
+                            type="time"
+                            value={meal.cutoff.time}
+                            onChange={(e) => setMeal(i, { cutoff: { ...meal.cutoff, time: e.target.value } })}
+                          />
+                        )}
+                      </Field>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm text-foreground-secondary">
+                        {meal.cutoff.time
+                          ? `After ${formatClock(meal.cutoff.time)} ${meal.cutoff.daysBefore === 0 ? "on the day" : "the day before"}, ${meal.displayName || "this meal"} can't be changed.`
+                          : "Choose a time."}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setMeals((current) => current.map((m) => ({ ...m, cutoff: { ...meal.cutoff } })))}
+                      >
+                        Use for every meal
+                      </Button>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <p className="text-sm text-foreground-secondary">Not served. Residents won&apos;t see it.</p>
@@ -374,27 +409,11 @@ function MealsForm({ initial, propertyId }: FormProps) {
         ))}
         <Card>
           <CardBody className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h3 className="font-semibold">Deadline to choose</h3>
-              <p className="text-sm text-foreground-secondary">
-                Shown to residents; after it, their choices for the day are locked. Now:{" "}
-                {daysBefore === 0 ? "on the day" : "the day before"}, at {cutoffTime ? formatClock(cutoffTime) : "–"}.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 items-end gap-3">
-              <Field id="cutoff-day" label="Day">
-                {(p) => (
-                  <NativeSelect {...p} value={daysBefore} onChange={(e) => setDaysBefore(Number(e.target.value))}>
-                    <option value={0}>On the day</option>
-                    <option value={1}>The day before</option>
-                  </NativeSelect>
-                )}
-              </Field>
-              <Field id="cutoff-time" label="Time">
-                {(p) => <Input {...p} type="time" value={cutoffTime} onChange={(e) => setCutoffTime(e.target.value)} />}
-              </Field>
-            </div>
-            <Field id="warn" label="Warn residents" hint="Their screen turns amber this long before the deadline if something is unanswered.">
+            <Field
+              id="warn"
+              label="Warn residents"
+              hint="Their screen turns amber this long before a meal's deadline if it's still unanswered."
+            >
               {(p) => (
                 <NativeSelect {...p} value={warnMinutes} onChange={(e) => setWarnMinutes(Number(e.target.value))}>
                   {WARN_OPTIONS.map(([value, label]) => (
@@ -450,7 +469,8 @@ function RemindersForm({ initial, propertyId }: FormProps) {
     });
   };
   // How it looks for the evening-before reminder, with this PG's deadline.
-  const sample = { day: "tomorrow", deadline: formatClock(initial.cutoff.time) };
+  const firstDeadline = initial.meals.filter((m) => m.active).map((m) => m.cutoff.time).sort()[0] ?? "06:00";
+  const sample = { day: "tomorrow", deadline: formatClock(firstDeadline) };
   const fill = (text: string) => text.replaceAll("{day}", sample.day).replaceAll("{deadline}", sample.deadline);
   const n = initial.residentsWithReminders;
   return (
