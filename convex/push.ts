@@ -26,7 +26,10 @@ export const send = internalAction({
       console.error("Reminders not sent: VAPID keys are missing on this deployment.");
       return { delivered: 0, removed: 0 };
     }
-    webpush.setVapidDetails(process.env.SITE_URL ?? "https://dine.livoza.org", publicKey, privateKey);
+    // The sender's address, shown to push services. It must be https (a
+    // development site at http://localhost would make every send fail).
+    const site = process.env.SITE_URL ?? "";
+    webpush.setVapidDetails(site.startsWith("https://") ? site : "https://dine.livoza.org", publicKey, privateKey);
     const payload = JSON.stringify({ title: args.title, body: args.body, url: args.url });
     const gone: Id<"pushSubscriptions">[] = [];
     let delivered = 0;

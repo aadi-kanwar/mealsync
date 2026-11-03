@@ -1,14 +1,23 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { Bell, Building2, Clock, MessageSquareHeart, Network, Palette, Plus, Trash2, type LucideIcon } from "lucide-react";
+import { Bell, Building2, Clock, MessageSquareHeart, Network, Palette, Plus, Send, Trash2, type LucideIcon } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { api } from "@convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@convex/_generated/dataModel";
+import {
+  DEFAULT_REMINDER_MESSAGE,
+  DEFAULT_REMINDER_TITLE,
+  MAX_REMINDER_MESSAGE_LENGTH,
+  MAX_REMINDER_TITLE_LENGTH,
+  REMINDER_FILL_INS,
+} from "@convex/lib/reminders";
 import { RequireOneProperty, usePropertyScope } from "@/components/app/property-scope";
+import { usePhoneReminders } from "@/components/app/reminders";
 import { RequireStaff } from "@/components/app/staff-gate";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -417,11 +426,32 @@ function RemindersForm({ initial, propertyId }: FormProps) {
   const update = useMutation(api.settings.updateReminders);
   const [enabled, setEnabled] = useState(initial.reminders.enabled);
   const [times, setTimes] = useState(initial.reminders.times);
-  const changed = enabled !== initial.reminders.enabled || times.join() !== initial.reminders.times.join();
+  const [title, setTitle] = useState(initial.reminders.title);
+  const [message, setMessage] = useState(initial.reminders.message);
+  const changed =
+    enabled !== initial.reminders.enabled ||
+    times.join() !== initial.reminders.times.join() ||
+    title !== initial.reminders.title ||
+    message !== initial.reminders.message;
   const { busy, error, onSubmit } = useSave(
-    () => update({ propertyId, enabled, times: times.filter((t) => t !== "") }),
-    () => (enabled ? "Saved. Reminders go out at the new times." : "Saved. Reminders are off."),
+    () => update({ propertyId, enabled, times: times.filter((t) => t !== ""), title, message }),
+    () => (enabled ? "Saved. Reminders go out at the new times, with this text." : "Saved. Reminders are off."),
   );
+  const messageBox = useRef<HTMLTextAreaElement>(null);
+  /** Puts {day} or {deadline} where the cursor is in the message. */
+  const insert = (word: string) => {
+    const box = messageBox.current;
+    const at = box?.selectionStart ?? message.length;
+    const end = box?.selectionEnd ?? message.length;
+    setMessage(message.slice(0, at) + word + message.slice(end));
+    requestAnimationFrame(() => {
+      box?.focus();
+      box?.setSelectionRange(at + word.length, at + word.length);
+    });
+  };
+  // How it looks for the evening-before reminder, with this PG's deadline.
+  const sample = { day: "tomorrow", deadline: formatClock(initial.cutoff.time) };
+  const fill = (text: string) => text.replaceAll("{day}", sample.day).replaceAll("{deadline}", sample.deadline);
   const n = initial.residentsWithReminders;
   return (
     <>
@@ -475,6 +505,61 @@ function RemindersForm({ initial, propertyId }: FormProps) {
             </fieldset>
           </CardBody>
         </Card>
+        <Card>
+          <CardBody className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <h3 className="font-semibold">What the notification says</h3>
+              <p className="text-sm text-foreground-secondary">
+                Dine fills in <code className="font-mono text-foreground">{"{day}"}</code> (today or tomorrow) and{" "}
+                <code className="font-mono text-foreground">{"{deadline}"}</code> (when choices close) for each reminder.
+              </p>
+            </div>
+            <Field id="reminder-title" label="Title" hint={`Up to ${MAX_REMINDER_TITLE_LENGTH} characters.`}>
+              {(p) => <Input {...p} maxLength={MAX_REMINDER_TITLE_LENGTH} value={title} onChange={(e) => setTitle(e.target.value)} />}
+            </Field>
+            <Field id="reminder-message" label="Message" hint={`Up to ${MAX_REMINDER_MESSAGE_LENGTH} characters.`}>
+              {(p) => (
+                <textarea
+                  {...p}
+                  ref={messageBox}
+                  rows={3}
+                  maxLength={MAX_REMINDER_MESSAGE_LENGTH}
+                  className={cn(inputClasses, "h-auto py-2.5 leading-relaxed")}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                />
+              )}
+            </Field>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Fill-ins">
+              {Object.keys(REMINDER_FILL_INS).map((word) => (
+                <Button key={word} type="button" variant="secondary" onClick={() => insert(word)}>
+                  <Icon icon={Plus} />
+                  {word}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setTitle(DEFAULT_REMINDER_TITLE);
+                  setMessage(DEFAULT_REMINDER_MESSAGE);
+                }}
+              >
+                Use the standard text
+              </Button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">Preview</span>
+              <div aria-label="Notification preview" className="flex gap-3 rounded-lg border border-border bg-subtle p-3 shadow-sm">
+                <Image src="/icon-192.png" alt="" width={40} height={40} className="size-10 shrink-0 rounded-md" />
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-sm font-semibold">{fill(title) || "Title"}</span>
+                  <span className="text-sm text-foreground-secondary">{fill(message) || "Message"}</span>
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
         <p className="text-sm text-foreground-secondary">
           Residents turn reminders on from their Profile, on each phone they use. {n === 0 ? "No residents have" : n === 1 ? "1 resident has" : `${n} residents have`} turned them on so far.
           A reminder is about the next day that&apos;s still open, and says the deadline.
@@ -483,7 +568,63 @@ function RemindersForm({ initial, propertyId }: FormProps) {
           Save reminders
         </Button>
       </form>
+      <TestNotification propertyId={propertyId} unsaved={changed} />
     </>
+  );
+}
+
+/** Turn notifications on for this device and send it the reminder, to see it really arrive. */
+function TestNotification({ propertyId, unsaved }: { propertyId: Id<"properties">; unsaved: boolean }) {
+  const r = usePhoneReminders();
+  const sendTest = useMutation(api.notifications.sendTest);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Card>
+      <CardBody className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h3 className="font-semibold">Try it on this phone</h3>
+          <p className="text-sm text-foreground-secondary">
+            {r.support === "needs-home-screen"
+              ? "On iPhone, add Dine to your Home Screen first (Share → Add to Home Screen), open it from there, then come back here."
+              : r.support === "unsupported"
+                ? "This browser can't show notifications. Try Chrome on Android, or Dine added to the Home Screen on iPhone."
+                : r.permission === "denied"
+                  ? "Notifications are blocked for Dine on this device. Allow them in the browser or phone settings, then come back."
+                  : r.on
+                    ? `Sends the saved reminder${unsaved ? " (save your changes first)" : ""} to this device only, worded as residents get it. It should arrive within a few seconds.`
+                    : "Turn on notifications for this device, then send yourself the reminder exactly as residents get it."}
+          </p>
+        </div>
+        {r.support === "supported" && r.permission !== "denied" && !r.loading ? (
+          r.on ? (
+            <Button
+              variant="secondary"
+              className="self-start"
+              loading={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const { devices } = await sendTest({ propertyId });
+                  toast.success(devices === 1 ? "Sent. Check this device's notifications." : `Sent to your ${devices} devices.`);
+                } catch (error) {
+                  toast.error(friendlyError(error));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Icon icon={Send} />
+              Send me a test
+            </Button>
+          ) : (
+            <Button variant="secondary" className="self-start" disabled={r.busy} onClick={() => r.turnOn()}>
+              <Icon icon={Bell} />
+              Turn on notifications here
+            </Button>
+          )
+        ) : null}
+      </CardBody>
+    </Card>
   );
 }
 
