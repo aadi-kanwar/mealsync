@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "./fixtures";
+import { expect, newContext, test, type Page } from "./fixtures";
 import { readFile } from "node:fs/promises";
 
 /**
@@ -137,4 +137,54 @@ test("the Warden has no Settings, Reports or Design system, and can correct a re
   await page.getByRole("button", { name: "Save" }).click();
   await expect(row.getByText("Room 102", { exact: false })).toBeVisible();
   await expect(row.getByText("Room 102A")).toHaveCount(0);
+});
+
+test("the Admin creates a Warden's account; the Warden signs in with the temporary password and chooses their own; the Admin resets it", async ({ page, browser }) => {
+  test.setTimeout(90_000); // Two people, two sign-ins, a password change and a reset.
+  const phone = `5${String(Date.now()).slice(-9)}`;
+  const name = `E2E Person ${phone.slice(-4)}`;
+  await signIn(page, ADMIN_PHONE);
+  await page.goto("/staff/team");
+  await page.getByLabel("Full name").fill(name);
+  await page.getByLabel("Mobile number", { exact: true }).fill(phone);
+  await page.getByRole("checkbox", { name: "TEST PG (development)" }).first().check();
+  await page.getByRole("button", { name: "Create Warden account" }).click();
+  const shown = page.getByRole("dialog", { name: "Temporary password" });
+  await expect(shown).toBeVisible({ timeout: 15_000 });
+  const temporary = (await shown.getByText(/^[a-z2-9]{4}-[a-z2-9]{4}$/).textContent())!;
+  await shown.getByRole("button", { name: "Done" }).click();
+  const row = page.getByRole("listitem").filter({ hasText: name });
+  await expect(row.getByText("Temporary password")).toBeVisible();
+
+  // The Warden's first sign-in: straight to choosing their own password, then their dashboard.
+  const wardenContext = await newContext(browser);
+  const warden = await wardenContext.newPage();
+  const wardenSignIn = async (password: string) => {
+    // Right after a reset the phone still holds the ended login for a moment
+    // (until its next check clears it), so the sign-in page may first send it on.
+    await expect(async () => {
+      await warden.goto("/signin");
+      await expect(warden.getByLabel("Mobile number")).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 15_000 });
+    await warden.getByLabel("Mobile number").fill(phone);
+    await warden.getByLabel("Password", { exact: true }).fill(password);
+    await warden.getByRole("button", { name: "Sign in", exact: true }).click();
+  };
+  await wardenSignIn(temporary);
+  await expect(warden.getByRole("heading", { name: "Choose a new password" })).toBeVisible({ timeout: 15_000 });
+  await warden.getByLabel("New password", { exact: true }).fill("e2e-warden-pass");
+  await warden.getByLabel("Type the new password again").fill("e2e-warden-pass");
+  await warden.getByRole("button", { name: "Save new password" }).click();
+  await expect(warden.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(row.getByText("Temporary password")).toHaveCount(0);
+
+  // Forgotten: the Admin resets it; the Warden's phone is signed out.
+  await row.getByRole("button", { name: `Reset ${name}'s password` }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reset password" }).click();
+  const again = (await page.getByRole("dialog", { name: "Temporary password" }).getByText(/^[a-z2-9]{4}-[a-z2-9]{4}$/).textContent())!;
+  await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
+  await expect(warden).toHaveURL(/\/signin$/, { timeout: 15_000 });
+  await wardenSignIn(again);
+  await expect(warden.getByRole("heading", { name: "Choose a new password" })).toBeVisible({ timeout: 15_000 });
+  await wardenContext.close();
 });

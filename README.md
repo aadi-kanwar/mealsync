@@ -112,9 +112,13 @@ cooking targets, buffers, actuals or kitchen reports.
       they must choose their own new password. Staff passwords can't be
       reset here.
   - *New sign-ups*: approve (confirm room and start date) or reject.
-  - *Staff* (Admin only): make someone an Admin (every PG) or a Warden of
-    the PGs you tick; change a Warden's PGs (**Properties**) or remove
-    someone. Wardens only ever see and manage the residents of their own
+  - *Staff* (Admin only): **Create a staff account** for a new Warden or
+    Admin (name, mobile number, role, PGs): you get a temporary password to
+    give them, and when they sign in with it they choose their own. Or add
+    someone who already has an account. Make someone an Admin (every PG) or a
+    Warden of the PGs you tick; change a Warden's PGs (**Properties**),
+    **Reset password** for a staff member who forgot theirs (temporary
+    password; their phones are signed out), or remove someone. Wardens only ever see and manage the residents of their own
     PGs. There must always be at least one Admin.
   - *Menu* (Admin only): fill in the two weekly menus (Menu A and Menu B:
     Monday–Sunday, four meals a day) and choose which one runs **this

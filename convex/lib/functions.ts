@@ -321,6 +321,7 @@ export const residentMutation = customMutation(
 export type ActionViewer = { userId: Id<"users">; phone: string; mustChangePassword: boolean };
 export type ActionStaff = {
   userId: Id<"users">;
+  organizationId: Id<"organizations">;
   /** Every property the caller may see. */
   propertyIds: Id<"properties">[];
   displayName: string;

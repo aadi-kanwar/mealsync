@@ -25,7 +25,9 @@ export type AuditAction =
   | "resident.details_updated"
   | "organization.created"
   | "organization.renamed"
-  | "staff.properties_updated";
+  | "staff.properties_updated"
+  | "staff.account_created"
+  | "staff.password_reset";
 
 /**
  * Appends one audit entry. Callers must never put passwords, tokens or

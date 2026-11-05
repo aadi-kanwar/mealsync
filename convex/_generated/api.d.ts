@@ -24,6 +24,7 @@ import type * as lib_inputRules from "../lib/inputRules.js";
 import type * as lib_meals from "../lib/meals.js";
 import type * as lib_menus from "../lib/menus.js";
 import type * as lib_messages from "../lib/messages.js";
+import type * as lib_passwords from "../lib/passwords.js";
 import type * as lib_property from "../lib/property.js";
 import type * as lib_reminders from "../lib/reminders.js";
 import type * as lib_sessions from "../lib/sessions.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   "lib/meals": typeof lib_meals;
   "lib/menus": typeof lib_menus;
   "lib/messages": typeof lib_messages;
+  "lib/passwords": typeof lib_passwords;
   "lib/property": typeof lib_property;
   "lib/reminders": typeof lib_reminders;
   "lib/sessions": typeof lib_sessions;
