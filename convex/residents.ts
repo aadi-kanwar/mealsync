@@ -18,6 +18,7 @@ import {
   staffQuery,
 } from "./lib/functions";
 import { displayNameSchema, isoDateSchema, roomNumberSchema } from "./lib/inputRules";
+import { temporaryPassword } from "./lib/passwords";
 import { addDays, localDateString } from "./lib/time";
 
 /** Residents with `status` in the properties a staff screen covers. */
@@ -309,16 +310,6 @@ async function endStaysAt(ctx: Pick<MutationCtx, "db">, property: Doc<"propertie
     ended += 1;
   }
   return ended;
-}
-
-// Letters and digits that are hard to confuse when read out (no 0/o, 1/l/i).
-const TEMP_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
-
-/** e.g. "kq7m-p3rx": 8 random characters, easy to read out loud. */
-function temporaryPassword(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(8));
-  const chars = [...bytes].map((b) => TEMP_ALPHABET[b % TEMP_ALPHABET.length]);
-  return `${chars.slice(0, 4).join("")}-${chars.slice(4).join("")}`;
 }
 
 /**

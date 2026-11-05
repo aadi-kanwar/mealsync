@@ -2,7 +2,7 @@
 
 import { useAction, useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Copy, DoorOpen, KeyRound, LogOut, Pencil, Undo2, UserRoundCheck } from "lucide-react";
+import { DoorOpen, KeyRound, LogOut, Pencil, Undo2, UserRoundCheck } from "lucide-react";
 import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import { addDays } from "@convex/lib/time";
@@ -10,6 +10,7 @@ import { formatPhoneForDisplay } from "@convex/lib/inputRules";
 import { matchesSearch, sortPeople, SortSelect, type SortKey } from "@/components/app/resident-sort";
 import { usePropertyScope } from "@/components/app/property-scope";
 import { RequireStaff } from "@/components/app/staff-gate";
+import { TemporaryPasswordContent } from "@/components/app/temporary-password";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -384,39 +385,7 @@ function ResetPasswordDialog({ row }: { row: Row }) {
           </DialogFooter>
         </DialogContent>
       ) : (
-        <DialogContent
-          title="Temporary password"
-          description={`Tell it to ${row.displayName} in person. It won't be shown again.`}
-        >
-          <p
-            className="rounded-md border border-border bg-subtle px-4 py-3 text-center font-mono text-2xl tracking-widest select-all"
-            aria-label={`Temporary password: ${temporary.split("").join(" ")}`}
-          >
-            {temporary}
-          </p>
-          <p className="text-sm text-foreground-secondary">
-            They sign in with their mobile number and this password, then choose a new one.
-          </p>
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(temporary);
-                  toast.success("Copied.");
-                } catch {
-                  toast.error("Couldn't copy. Please read it out instead.");
-                }
-              }}
-            >
-              <Icon icon={Copy} />
-              Copy
-            </Button>
-            <DialogClose asChild>
-              <Button>Done</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
+        <TemporaryPasswordContent password={temporary} name={row.displayName} />
       )}
     </Dialog>
   );
