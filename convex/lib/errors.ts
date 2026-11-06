@@ -21,7 +21,8 @@ export type AppErrorCode =
   | "WEAK_PASSWORD"
   | "CUTOFF_PASSED"
   | "NOT_ELIGIBLE"
-  | "CHOOSE_PROPERTY";
+  | "CHOOSE_PROPERTY"
+  | "SSO_LINK_EXPIRED";
 
 export type AppErrorData = { code: AppErrorCode; message: string };
 
@@ -43,6 +44,8 @@ export const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   CUTOFF_PASSED: "The time to choose this meal has passed. Contact the Warden to change it.",
   NOT_ELIGIBLE: "You aren't counted for meals on that day.",
   CHOOSE_PROPERTY: "Choose a property first.",
+  // Deliberately the same for every Admin Hub sign-in failure: never say why.
+  SSO_LINK_EXPIRED: "This link has expired. Open it again from the Admin Hub.",
 };
 
 export function appError(code: AppErrorCode, message?: string): ConvexError<AppErrorData> {

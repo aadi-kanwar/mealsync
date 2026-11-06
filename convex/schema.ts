@@ -30,6 +30,31 @@ export default defineSchema({
   // Tables required by Convex Auth (users, sessions, accounts, ...).
   ...authTables,
 
+  // Convex Auth's users table, plus `ssoManaged`: true once a master admin
+  // has signed in through the Admin Hub (single sign-on). Nothing else changes.
+  users: defineTable({
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+    ssoManaged: v.optional(v.boolean()),
+  })
+    .index("email", ["email"])
+    .index("phone", ["phone"]),
+
+  // Admin Hub sign-in tickets already used (by their one-time `jti`), so a
+  // ticket can't be used twice. Rows older than 10 minutes are deleted by a
+  // scheduled job; by then the ticket has long expired anyway.
+  ssoUsedTickets: defineTable({
+    jti: v.string(), // unique
+    usedAt: v.number(),
+  })
+    .index("by_jti", ["jti"])
+    .index("by_usedAt", ["usedAt"]),
+
   organizations: defineTable({
     name: v.string(),
     slug: v.string(), // unique
