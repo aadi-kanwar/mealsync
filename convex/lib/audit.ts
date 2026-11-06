@@ -27,7 +27,8 @@ export type AuditAction =
   | "organization.renamed"
   | "staff.properties_updated"
   | "staff.account_created"
-  | "staff.password_reset";
+  | "staff.password_reset"
+  | "staff.role_changed";
 
 /**
  * Appends one audit entry. Callers must never put passwords, tokens or

@@ -139,3 +139,52 @@ export async function setWardenProperties(
     metadata: { before, after: [...wanted] },
   });
 }
+
+/**
+ * Turns an Admin into a Warden of `propertyIds`. Refuses if they're the last
+ * Admin, so the organisation is never left without one.
+ */
+export async function makeWarden(
+  ctx: Db,
+  args: {
+    organizationId: Id<"organizations">;
+    targetUserId: Id<"users">;
+    propertyIds: readonly Id<"properties">[];
+    actorUserId: Id<"users">;
+  },
+): Promise<void> {
+  const rows = (await activeRows(ctx, args.targetUserId)).filter((r) => r.organizationId === args.organizationId);
+  const adminRows = rows.filter((r) => r.role === "admin");
+  if (adminRows.length === 0) throw appError("CONFLICT", "This person isn't an Admin.");
+  const admins = await ctx.db
+    .query("staffRoles")
+    .withIndex("by_org_status", (q) => q.eq("organizationId", args.organizationId).eq("status", "active"))
+    .collect();
+  if (new Set(admins.filter((r) => r.role === "admin").map((r) => r.userId)).size <= 1) {
+    throw appError("CONFLICT", "There must always be at least one Admin. Make someone else an Admin first.");
+  }
+  const propertyIds = await checkProperties(ctx, args.organizationId, args.propertyIds);
+  const now = Date.now();
+  for (const row of adminRows) {
+    await ctx.db.patch(row._id, { status: "inactive", revokedBy: args.actorUserId, revokedAt: now });
+  }
+  for (const propertyId of propertyIds) {
+    await ctx.db.insert("staffRoles", {
+      organizationId: args.organizationId,
+      propertyId,
+      userId: args.targetUserId,
+      role: "warden",
+      status: "active",
+      grantedBy: args.actorUserId,
+      grantedAt: now,
+    });
+  }
+  await writeAudit(ctx, {
+    property: { organizationId: args.organizationId },
+    actorUserId: args.actorUserId,
+    action: "staff.role_changed",
+    entityType: "users",
+    entityId: args.targetUserId,
+    metadata: { from: "admin", to: "warden", propertyIds },
+  });
+}

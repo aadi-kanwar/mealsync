@@ -115,6 +115,7 @@ function StaffRow({ person, timezone }: { person: Person; timezone: string }) {
         </span>
       </div>
       <div className="flex flex-wrap gap-2">
+        <ChangeRoleDialog person={person} />
         {person.role === "warden" ? <PropertiesDialog person={person} /> : null}
         {person.isMe ? null : <ResetStaffPasswordDialog person={person} />}
         <RemoveDialog person={person} />
@@ -367,6 +368,80 @@ function GrantRoleForm() {
         </form>
       </CardBody>
     </Card>
+  );
+}
+
+/** Makes a Warden an Admin, or an Admin a Warden of the properties ticked. */
+function ChangeRoleDialog({ person }: { person: Person }) {
+  const changeRole = useMutation(api.staff.changeRole);
+  const { current, properties } = usePropertyScope();
+  const toAdmin = person.role === "warden";
+  const [open, setOpen] = useState(false);
+  const [propertyIds, setPropertyIds] = useState<Id<"properties">[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const label = toAdmin ? "Make Admin" : "Make Warden";
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) {
+          setPropertyIds(current ? [current.propertyId] : properties.length === 1 ? [properties[0].propertyId] : []);
+          setServerError(null);
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="secondary" aria-label={`${label}: ${person.displayName}`}>
+          <Icon icon={ShieldCheck} />
+          {label}
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        title={toAdmin ? `Make ${person.displayName} an Admin?` : `Make ${person.displayName} a Warden?`}
+        description={
+          toAdmin
+            ? "Admins see every property and can do everything, including managing staff (other Admins too), menus, reports and settings. Only for people you fully trust."
+            : person.isMe
+              ? "This is you: you'll lose the Admin screens straight away. They'll see only the properties you tick."
+              : "They'll lose the Admin screens and see only the properties you tick."
+        }
+      >
+        {serverError ? <Banner tone="danger">{serverError}</Banner> : null}
+        {toAdmin || properties.length <= 1 ? null : (
+          <PropertyChoices idPrefix={`role-${person.userId}`} value={propertyIds} onChange={setPropertyIds} />
+        )}
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="secondary">Cancel</Button>
+          </DialogClose>
+          <Button
+            loading={busy}
+            disabled={!toAdmin && propertyIds.length === 0}
+            onClick={async () => {
+              setBusy(true);
+              setServerError(null);
+              try {
+                await changeRole({
+                  userId: person.userId,
+                  role: toAdmin ? "admin" : "warden",
+                  propertyIds: toAdmin ? undefined : propertyIds,
+                });
+                toast.success(toAdmin ? `${person.displayName} is now an Admin.` : `${person.displayName} is now a Warden.`);
+                setOpen(false);
+              } catch (error) {
+                setServerError(friendlyError(error));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {label}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
