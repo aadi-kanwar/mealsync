@@ -188,3 +188,30 @@ test("the Admin creates a Warden's account; the Warden signs in with the tempora
   await expect(warden.getByRole("heading", { name: "Choose a new password" })).toBeVisible({ timeout: 15_000 });
   await wardenContext.close();
 });
+
+test("the Admin makes a Warden an Admin, and back", async ({ page }) => {
+  test.setTimeout(60_000);
+  const phone = `5${String(Date.now()).slice(-9)}`;
+  const name = `E2E Person ${phone.slice(-4)}`;
+  await signIn(page, ADMIN_PHONE);
+  await page.goto("/staff/team");
+  await page.getByLabel("Full name").fill(name);
+  await page.getByLabel("Mobile number", { exact: true }).fill(phone);
+  await page.getByRole("checkbox", { name: "TEST PG (development)" }).first().check();
+  await page.getByRole("button", { name: "Create Warden account" }).click();
+  await page.getByRole("dialog", { name: "Temporary password" }).getByRole("button", { name: "Done" }).click({ timeout: 15_000 });
+  const row = page.getByRole("listitem").filter({ hasText: name });
+
+  await row.getByRole("button", { name: `Make Admin: ${name}` }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Make Admin" }).click();
+  await expect(page.getByText(`${name} is now an Admin.`)).toBeVisible();
+  await expect(row.getByText("Every property")).toBeVisible();
+
+  await row.getByRole("button", { name: `Make Warden: ${name}` }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("button", { name: "Make Warden" })).toBeDisabled();
+  await dialog.getByRole("checkbox", { name: "TEST PG 2 (development)" }).check();
+  await dialog.getByRole("button", { name: "Make Warden" }).click();
+  await expect(page.getByText(`${name} is now a Warden.`)).toBeVisible();
+  await expect(row.getByText("TEST PG 2 (development)")).toBeVisible();
+});

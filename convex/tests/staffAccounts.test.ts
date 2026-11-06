@@ -140,3 +140,40 @@ describe("the Admin resets staff passwords", () => {
     expect(await errorCode(warden.as.action(api.staff.resetPassword, { userId: admin.userId }))).toBe("FORBIDDEN");
   });
 });
+
+describe("changing a staff member's role", () => {
+  test("a Warden becomes an Admin (every PG), and back to a Warden of chosen PGs; there's always an Admin", async () => {
+    const { t, first, second, admin } = await setup();
+    const meena = await createStaff(t, "warden", "Meena Warden", [first._id]);
+
+    await admin.as.mutation(api.staff.changeRole, { userId: meena.userId, role: "admin" });
+    let row = (await admin.as.query(api.staff.list, {})).find((s) => s.userId === meena.userId)!;
+    expect(row).toMatchObject({ role: "admin", propertyIds: [] });
+    expect((await meena.as.query(api.users.me, {}))?.staff).toMatchObject({
+      isAdmin: true,
+      properties: [{ name: "Second PG" }, { name: "Test PG" }],
+    });
+    expect(await errorCode(admin.as.mutation(api.staff.changeRole, { userId: meena.userId, role: "admin" }))).toBe("CONFLICT");
+
+    await admin.as.mutation(api.staff.changeRole, { userId: meena.userId, role: "warden", propertyIds: [second._id] });
+    row = (await admin.as.query(api.staff.list, {})).find((s) => s.userId === meena.userId)!;
+    expect(row).toMatchObject({ role: "warden", propertyIds: [second._id] });
+    expect((await meena.as.query(api.users.me, {}))?.staffRoles).toEqual(["warden"]);
+
+    // The only Admin can't become a Warden; a Warden needs a PG.
+    expect(
+      await errorCode(admin.as.mutation(api.staff.changeRole, { userId: admin.userId, role: "warden", propertyIds: [first._id] })),
+    ).toBe("CONFLICT");
+    await admin.as.mutation(api.staff.changeRole, { userId: meena.userId, role: "admin" });
+    expect(await errorCode(admin.as.mutation(api.staff.changeRole, { userId: meena.userId, role: "warden", propertyIds: [] }))).toBe(
+      "INVALID_INPUT",
+    );
+    const actions = (await t.run((ctx) => ctx.db.query("auditLogs").collect())).map((a) => a.action);
+    expect(actions).toContain("staff.role_changed");
+
+    const resident = await createActiveResident(t, "Asha Rao", "1");
+    expect(await errorCode(admin.as.mutation(api.staff.changeRole, { userId: resident.userId, role: "admin" }))).toBe("NOT_FOUND");
+    const warden = await createStaff(t, "warden");
+    expect(await errorCode(warden.as.mutation(api.staff.changeRole, { userId: warden.userId, role: "admin" }))).toBe("FORBIDDEN");
+  });
+});

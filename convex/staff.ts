@@ -22,7 +22,7 @@ import {
 } from "./lib/functions";
 import { displayNameSchema, normalizePhone } from "./lib/inputRules";
 import { temporaryPassword } from "./lib/passwords";
-import { grantStaffRole, setWardenProperties } from "./lib/staffRoles";
+import { grantStaffRole, makeWarden, setWardenProperties } from "./lib/staffRoles";
 import { vStaffRole } from "./lib/validators";
 
 /** The organisation's staff: one entry per person, with the properties a Warden looks after. Admin only. */
@@ -96,6 +96,38 @@ export const grantRole = staffMutation({
       grantedBy: ctx.staff.userId,
       auditAction: "staff.role_granted",
     });
+    return null;
+  },
+});
+
+/**
+ * Changes a staff member's role: a Warden becomes an Admin (every property),
+ * or an Admin becomes a Warden of `propertyIds`. There's always at least
+ * one Admin left. Admin only; audited.
+ */
+export const changeRole = staffMutation({
+  roles: ["admin"],
+  args: { userId: v.id("users"), role: vStaffRole, propertyIds: v.optional(v.array(v.id("properties"))) },
+  handler: async (ctx, args) => {
+    const { organization, userId } = ctx.staff;
+    const access = await getStaffAccess(ctx, args.userId);
+    if (access === null || access.organization._id !== organization._id) throw appError("NOT_FOUND");
+    if (args.role === "admin") {
+      await grantStaffRole(ctx, {
+        organizationId: organization._id,
+        targetUserId: args.userId,
+        role: "admin",
+        grantedBy: userId,
+        auditAction: "staff.role_granted",
+      });
+    } else {
+      await makeWarden(ctx, {
+        organizationId: organization._id,
+        targetUserId: args.userId,
+        propertyIds: args.propertyIds ?? [],
+        actorUserId: userId,
+      });
+    }
     return null;
   },
 });
