@@ -21,4 +21,8 @@ crons.daily("end finished stays", { hourUTC: 18, minuteUTC: 40 }, internal.resid
 // Settings is due (at most once per time per day).
 crons.interval("send meal reminders", { minutes: 5 }, internal.notifications.sendDueReminders, {});
 
+// Every 5 minutes, forget Admin Hub sign-in tickets used more than 10
+// minutes ago (they expire after 60 seconds, so they can't be reused anyway).
+crons.interval("forget used admin hub tickets", { minutes: 5 }, internal.sso.deleteOldTickets, {});
+
 export default crons;

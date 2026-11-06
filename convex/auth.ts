@@ -94,6 +94,26 @@ const PhonePassword = ConvexCredentials<DataModel>({
   },
 });
 
+export const HUB_SSO_PROVIDER = "hub-sso";
+
+/**
+ * Admin Hub single sign-on (master admins only). The /sso page calls
+ * `signIn("hub-sso", { ticket })` with the one-time ticket the hub signed.
+ * Any failure gives the same SSO_LINK_EXPIRED message, never the reason.
+ * The login it opens lasts 12 hours (see convex/sso.ts).
+ */
+const HubSso = ConvexCredentials<DataModel>({
+  id: HUB_SSO_PROVIDER,
+  authorize: async (params, ctx) => {
+    const ticket = typeof params.ticket === "string" ? params.ticket : "";
+    const claims = await ctx.runAction(internal.ssoNode.verifyTicket, { ticket });
+    if (claims === null) throw appError("SSO_LINK_EXPIRED");
+    const result = await ctx.runMutation(internal.sso.acceptTicket, claims);
+    if (result === null) throw appError("SSO_LINK_EXPIRED");
+    return result;
+  },
+});
+
 async function accountExists(ctx: ActionCtx, phone: string): Promise<boolean> {
   try {
     await retrieveAccount(ctx, { provider: PHONE_PASSWORD_PROVIDER, account: { id: phone } });
@@ -125,7 +145,7 @@ async function signInExisting(ctx: ActionCtx, phone: string, password: string) {
 }
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [PhonePassword],
+  providers: [PhonePassword, HubSso],
   // Stay signed in: up to 90 days, or until Dine isn't opened for 30 days.
   // Signing out, or a password reset or change, still ends it at once.
   session: { totalDurationMs: SESSION_TOTAL_MS, inactiveDurationMs: SESSION_INACTIVE_MS },

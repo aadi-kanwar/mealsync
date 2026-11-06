@@ -6,7 +6,7 @@ import { AppFrame } from "@/components/app/app-frame";
 import { AppPrompts } from "@/components/app/app-prompts";
 import { Brand } from "@/components/app/brand";
 import { PropertyPicker, PropertyScopeProvider } from "@/components/app/property-scope";
-import { SignOutButton, useMe } from "@/components/app/session";
+import { AdminHubLink, SignOutButton, useMe } from "@/components/app/session";
 import { visibleNav } from "@/components/nav/nav-items";
 import { BottomNav, StaffSidebar } from "@/components/nav/staff-nav";
 import { LoadingState } from "@/components/ui/skeleton";
@@ -53,6 +53,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                 </span>
               </div>
               <div className="flex min-w-0 items-center gap-2">
+                <AdminHubLink />
                 <PropertyPicker />
                 {/* On phones, Log out is in the bottom bar's More menu. */}
                 <span className="hidden md:block">

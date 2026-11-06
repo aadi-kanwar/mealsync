@@ -13,9 +13,12 @@ import { LOGIN_COOKIE_MAX_AGE_SECONDS } from "@convex/lib/sessions";
 const isSignInPage = createRouteMatcher(["/signin"]);
 const isLandingPage = createRouteMatcher(["/"]);
 const isDesignPage = createRouteMatcher(["/design"]);
+const isHubSignInPage = createRouteMatcher(["/sso"]);
 
 export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const signedIn = await convexAuth.isAuthenticated();
+  // Admin Hub single sign-on: open to everyone; the ticket itself is checked by the backend.
+  if (isHubSignInPage(request)) return undefined;
   if (isSignInPage(request)) {
     return signedIn ? nextjsMiddlewareRedirect(request, "/") : undefined;
   }
