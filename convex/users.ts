@@ -34,6 +34,8 @@ export const me = viewerQuery({
     const home = resident && (await ctx.db.get(resident.propertyId));
     return {
       phone: authUser.phone ?? null,
+      /** The Admin Hub's address, only for master admins who came from the hub (null for everyone else). */
+      hubLink: authUser.ssoManaged === true ? (process.env.HUB_ORIGIN ?? null) : null,
       profile: profile && {
         displayName: profile.displayName,
         status: profile.status,

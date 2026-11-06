@@ -236,3 +236,107 @@ describe("Admin Hub sign-in (hub-sso)", () => {
     expect(result.tokens?.token).toBeTruthy();
   });
 });
+
+/** A "Revoke in all apps" token as the hub signs it. */
+const revokeToken = (overrides: JWTPayload = {}, key: CryptoKey = hubKey) =>
+  ticket({ aud: "mealsync-revoke", role: undefined, name: undefined, ...overrides }, key);
+
+const callRevoke = (t: T, token?: string) =>
+  t.fetch("/sso/revoke", { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+async function hubSession(t: T, userId: Id<"users">) {
+  return (await t.run((ctx) => ctx.db.query("authSessions").withIndex("userId", (q) => q.eq("userId", userId)).collect())).filter(
+    (s) => Math.abs(s.expirationTime - s._creationTime - SSO_SESSION_MS) <= 60_000,
+  );
+}
+
+describe("Revoke in all apps (/sso/revoke)", () => {
+  test("ends the hub login and removes the Admin role the hub gave", async () => {
+    const { t } = await setup();
+    await ssoSignIn(t, await ticket());
+    const user = (await t.run((ctx) => ctx.db.query("users").first()))!;
+    const [session] = await hubSession(t, user._id);
+    const as = t.withIdentity({ subject: `${user._id}|${session._id}` });
+    expect((await as.query(api.users.me, {}))?.hubLink).toBe(HUB);
+
+    const response = await callRevoke(t, await revokeToken());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, sessionsEnded: 1, adminRemoved: true });
+
+    expect(await as.query(api.users.me, {})).toBeNull();
+    expect(await rolesOf(t, user._id)).toEqual([{ role: "admin", status: "inactive", propertyId: null }]);
+    expect((await t.run((ctx) => ctx.db.get(user._id)))?.ssoManaged).toBe(false);
+    expect(await t.run((ctx) => ctx.db.query("authRefreshTokens").collect())).toHaveLength(0);
+    const audit = (await t.run((ctx) => ctx.db.query("auditLogs").collect())).map((a) => a.action);
+    expect(audit).toContain("sso.access_revoked");
+  });
+
+  test("a Warden keeps their Warden role; only the hub's Admin role goes", async () => {
+    const { t, property } = await setup();
+    const warden = await createStaff(t, "warden");
+    await ssoSignIn(t, await ticket({ phone: warden.phone }));
+    await callRevoke(t, await revokeToken({ phone: warden.phone }));
+    expect(await rolesOf(t, warden.userId)).toEqual([
+      { role: "warden", status: "active", propertyId: property._id },
+      { role: "admin", status: "inactive", propertyId: null },
+    ]);
+    // Their own login (made before the hub sign-in) still works.
+    expect(await warden.as.query(api.users.me, {})).not.toBeNull();
+  });
+
+  test("an Admin role the person already had in Dine is kept, as is their own login", async () => {
+    const { t } = await setup();
+    const admin = await createStaff(t, "admin");
+    await ssoSignIn(t, await ticket({ phone: admin.phone }));
+    expect(await hubSession(t, admin.userId)).toHaveLength(1);
+    const response = await callRevoke(t, await revokeToken({ phone: admin.phone }));
+    expect(await response.json()).toEqual({ ok: true, sessionsEnded: 1, adminRemoved: false });
+    expect(await hubSession(t, admin.userId)).toHaveLength(0);
+    expect(await rolesOf(t, admin.userId)).toEqual([{ role: "admin", status: "active", propertyId: null }]);
+    expect((await admin.as.query(api.users.me, {}))?.staff?.isAdmin).toBe(true);
+  });
+
+  test("accounts that never used the hub are not touched", async () => {
+    const { t } = await setup();
+    const admin = await createStaff(t, "admin");
+    const before = await t.run(async (ctx) => ({ users: await ctx.db.query("users").collect(), roles: await ctx.db.query("staffRoles").collect() }));
+    const response = await callRevoke(t, await revokeToken({ phone: admin.phone }));
+    expect(await response.json()).toEqual({ ok: true, sessionsEnded: 0, adminRemoved: false });
+    const after = await t.run(async (ctx) => ({ users: await ctx.db.query("users").collect(), roles: await ctx.db.query("staffRoles").collect() }));
+    expect(after).toEqual(before);
+    expect((await admin.as.query(api.users.me, {}))?.hubLink).toBeNull();
+  });
+
+  test("unsigned, wrong-audience, foreign-key, expired and reused requests are refused and change nothing", async () => {
+    const { t } = await setup();
+    await ssoSignIn(t, await ticket());
+    const now = Math.floor(Date.now() / 1000);
+    const reused = await revokeToken();
+    await callRevoke(t, reused);
+    await ssoSignIn(t, await ticket()); // signed in again, admin role back via a new grant
+
+    const before = await t.run(async (ctx) => ({
+      sessions: await ctx.db.query("authSessions").collect(),
+      roles: await ctx.db.query("staffRoles").collect(),
+    }));
+    const bad: Record<string, string | undefined> = {
+      none: undefined,
+      signInTicket: await ticket(),
+      otherApp: await revokeToken({ aud: "staff-revoke" }),
+      wrongIssuer: await revokeToken({ iss: "https://evil.example.test" }),
+      foreignKey: await revokeToken({}, otherKey),
+      expired: await revokeToken({ iat: now - 100, exp: now - 40 }),
+      reused,
+    };
+    for (const [name, token] of Object.entries(bad)) {
+      const response = await callRevoke(t, token);
+      expect(response.status, name).toBe(401);
+      expect(await response.json(), name).toEqual({ ok: false });
+    }
+    const after = await t.run(async (ctx) => ({
+      sessions: await ctx.db.query("authSessions").collect(),
+      roles: await ctx.db.query("staffRoles").collect(),
+    }));
+    expect(after).toEqual(before);
+  });
+});

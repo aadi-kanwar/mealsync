@@ -2,7 +2,7 @@ import { RESIDENT_NAV } from "@/components/nav/nav-items";
 import { BottomNav } from "@/components/nav/staff-nav";
 import { AppFrame } from "./app-frame";
 import { Brand } from "./brand";
-import { SignOutButton } from "./session";
+import { AdminHubLink, SignOutButton } from "./session";
 
 /**
  * Simple frame for resident screens: app name and PG name. Approved
@@ -30,7 +30,10 @@ export function ResidentShell({
               ) : null}
             </div>
             {/* With the bottom navigation, logging out lives on the Profile screen. */}
-            {nav ? null : <SignOutButton />}
+            <div className="flex items-center gap-2">
+              <AdminHubLink />
+              {nav ? null : <SignOutButton />}
+            </div>
           </div>
         </header>
       }
