@@ -57,7 +57,7 @@ export function SignOutButton({ variant = "ghost", full = false }: { variant?: "
   );
 }
 
-/** "← Admin Hub": shown only to master admins who arrived from the Admin Hub. */
+/** "← Livoza Hub": shown to everyone who arrived from the Livoza Hub. */
 export function AdminHubLink() {
   const me = useMe();
   if (!me?.hubLink) return null;
@@ -67,7 +67,7 @@ export function AdminHubLink() {
       className="inline-flex shrink-0 items-center gap-1 rounded-sm text-xs font-medium text-foreground-secondary hover:text-foreground"
     >
       <Icon icon={ArrowLeft} className="size-3.5" />
-      Admin Hub
+      Livoza Hub
     </a>
   );
 }

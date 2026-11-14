@@ -319,3 +319,24 @@ npx convex run seed:removeTestSignups   # dev only: delete the "E2E Person" acco
 Development TEST accounts created by `seed:dev` (password = `DEV_SEED_PASSWORD`):
 Admin `9000000001`, Warden `9000000002`, active
 residents `9000000004` and `9000000005`, pending resident `9000000006`.
+
+## Livoza Hub for everyone
+
+The Livoza Hub is the one sign-in for everyone, not only master admins. It
+owns people, their profile types and properties; Dine keeps its own rules
+for the role the hub gives (the hub's `tools.config.ts`).
+
+- **Tickets** (`/sso`): any profile type. Dine makes itself match the ticket
+  (role, properties, resident stay) and opens a 12-hour login.
+  When it ends, people are sent back to the hub, which opens Dine again.
+  The older master-admin-only tickets still work.
+- **Sync** (`POST /sso/sync`, audience `mealsync-sync`): the hub sends every change
+  to a person or property. Dine applies it as "make it so"
+  (`convex/lib/hubSync.ts`); switched-off people lose access but their
+  history is kept. Rows store the hub's ids (`users.hubUserId`,
+  `properties.hubPropertyId`).
+- **Export** (`POST /sso/export`, audience `mealsync-export`): for the hub's
+  one-time import (people, roles as hub profile types, properties, and
+  password hashes so people keep their password).
+- **`HUB_ONLY=true`** on the Convex deployment switches off Dine's own
+  sign-in once everyone uses the hub; the sign-in page sends people there.

@@ -25,6 +25,7 @@ import type * as lib_csv from "../lib/csv.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_headcount from "../lib/headcount.js";
+import type * as lib_hubSync from "../lib/hubSync.js";
 import type * as lib_inputRules from "../lib/inputRules.js";
 import type * as lib_meals from "../lib/meals.js";
 import type * as lib_menus from "../lib/menus.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   "lib/errors": typeof lib_errors;
   "lib/functions": typeof lib_functions;
   "lib/headcount": typeof lib_headcount;
+  "lib/hubSync": typeof lib_hubSync;
   "lib/inputRules": typeof lib_inputRules;
   "lib/meals": typeof lib_meals;
   "lib/menus": typeof lib_menus;

@@ -20,6 +20,7 @@ import {
   placeNameSchema,
   roomNumberSchema,
 } from "@convex/lib/inputRules";
+import { HubOnlyRedirect } from "@/components/app/hub-redirect";
 import { Brand } from "@/components/app/brand";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -137,6 +138,7 @@ function SignIn() {
   const [mode, setMode] = useState<Mode>("signIn");
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 px-4 py-10">
+      <HubOnlyRedirect />
       <Link href="/" aria-label="Dine home" className="self-start">
         <Brand size="lg" />
       </Link>

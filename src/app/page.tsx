@@ -4,6 +4,7 @@ import { ArrowRight, CircleCheck, Clock, Leaf } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { HubOnlyRedirect } from "@/components/app/hub-redirect";
 import { Brand, Eyebrow } from "@/components/app/brand";
 import { destinationFor, useMe } from "@/components/app/session";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const STEPS = [
 function Landing() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-4 py-6">
+      <HubOnlyRedirect />
       <Brand size="lg" />
       <div className="flex flex-col gap-3">
         <Eyebrow>Before you skip a meal</Eyebrow>
