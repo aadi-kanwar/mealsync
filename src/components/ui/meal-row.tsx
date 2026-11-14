@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, CircleDashed, X, type LucideIcon } from "lucide-react";
+import { DishList } from "./dish-list";
 import { Icon } from "./icon";
 import { StatusBadge } from "./status-badge";
 import { YesNoToggle, type YesNo } from "./yes-no-toggle";
@@ -46,7 +47,7 @@ export function MealRow({
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-medium">{name}</span>
         <span className="text-sm text-foreground-secondary tabular">{time}</span>
-        {menu ? <span className="mt-0.5 text-sm text-foreground">{menu}</span> : null}
+        {menu ? <DishList items={menu} label={`${name} dishes`} /> : null}
         {children ? <div className="flex flex-col text-xs">{children}</div> : null}
       </div>
       {locked ? (

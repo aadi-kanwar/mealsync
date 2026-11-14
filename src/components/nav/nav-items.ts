@@ -44,5 +44,6 @@ export function visibleNav(roles: readonly StaffRole[]): NavItem[] {
 export const RESIDENT_NAV: NavItem[] = [
   { href: "/home", label: "Tomorrow", icon: Sun, roles: [] },
   { href: "/upcoming", label: "This week", icon: CalendarDays, roles: [] },
+  { href: "/menu", label: "Menu", icon: UtensilsCrossed, roles: [] },
   { href: "/profile", label: "Profile", icon: UserRound, roles: [] },
 ];
