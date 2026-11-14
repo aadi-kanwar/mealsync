@@ -22,7 +22,9 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   // Today's and tomorrow's weekdays (the home screen shows today before 6 AM),
   // filled the same in both menus so the rotation doesn't matter.
   const weekdays = [0, 1].map((d) => formatInTimeZone(new Date(Date.now() + d * 86_400_000), "Asia/Kolkata", "EEEE"));
-  const dish = `Test thali ${Date.now() % 100000}`;
+  const thali = `Test thali ${Date.now() % 100000}`;
+  // Typed as one line; residents see each dish as its own tag.
+  const dish = `${thali}, raita`;
 
   const adminContext = await newContext(browser);
   const admin = await adminContext.newPage();
@@ -48,8 +50,23 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   const resident = await context.newPage();
   await signIn(resident, RESIDENT_PHONE);
   await expect(resident.getByRole("heading", { name: /(Today|Tomorrow)/ })).toBeVisible();
-  await expect(resident.getByText(dish)).toBeVisible();
+  const lunchDishes = resident.getByRole("list", { name: "Lunch dishes" });
+  await expect(lunchDishes.getByRole("listitem")).toHaveText([thali, "Raita"]);
   await expect(resident.getByText("12:00 – 2:00 PM")).toBeVisible();
+
+  // The Menu tab: a menu card for the day, with each meal's dishes and the resident's choice.
+  await resident.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Menu" }).click();
+  await expect(resident.getByRole("heading", { name: "Menu", level: 1 })).toBeVisible();
+  await expect(resident.getByRole("tab")).toHaveCount(7);
+  const card = resident.getByRole("tabpanel");
+  await expect(card.getByRole("list", { name: "Lunch dishes" }).getByRole("listitem")).toHaveText([thali, "Raita"]);
+  await expect(card.getByRole("heading", { name: "Lunch" })).toBeVisible();
+  await expect(card.getByText("Your choice:").first()).toBeVisible();
+  // Another day: the card follows the tab chosen.
+  const tabs = resident.getByRole("tab");
+  await tabs.nth(5).click();
+  await expect(tabs.nth(5)).toHaveAttribute("aria-selected", "true");
+  await expect(card).toBeVisible();
   await context.close();
 });
 
