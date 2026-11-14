@@ -146,6 +146,28 @@
       opacity: 0.5;
     }
   }
+  /* The menu card sliding in from the side the resident swiped towards. */
+  --animate-slide-from-right: slide-from-right 200ms var(--default-transition-timing-function);
+  --animate-slide-from-left: slide-from-left 200ms var(--default-transition-timing-function);
+  @keyframes slide-from-right {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+  }
+  @keyframes slide-from-left {
+    from {
+      opacity: 0;
+      transform: translateX(-24px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-from-right,
+  .animate-slide-from-left {
+    animation: none;
+  }
 }
 
 @layer base {

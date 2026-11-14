@@ -18,7 +18,9 @@ async function signIn(page: Page, phone: string) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
-test("admin's menu shows up on residents' meals", async ({ browser }) => {
+test("admin's menu shows up on residents' meals", async ({ browser, isMobile }) => {
+  // Only one run may change the shared menu, or the phone and desktop runs overwrite each other's.
+  test.skip(isMobile, "Changes the menu: desktop only. The phone test below only reads it.");
   // Today's and tomorrow's weekdays (the home screen shows today before 6 AM),
   // filled the same in both menus so the rotation doesn't matter.
   const weekdays = [0, 1].map((d) => formatInTimeZone(new Date(Date.now() + d * 86_400_000), "Asia/Kolkata", "EEEE"));
@@ -62,11 +64,35 @@ test("admin's menu shows up on residents' meals", async ({ browser }) => {
   await expect(card.getByRole("list", { name: "Lunch dishes" }).getByRole("listitem")).toHaveText([thali, "Raita"]);
   await expect(card.getByRole("heading", { name: "Lunch" })).toBeVisible();
   await expect(card.getByText("Your choice:").first()).toBeVisible();
+  await context.close();
+});
+
+test("on a phone: the next meal on top, and a swipe changes the day", async ({ page: resident, isMobile }) => {
+  test.skip(!isMobile, "Phone only.");
+  await signIn(resident, RESIDENT_PHONE);
+  await expect(resident.getByRole("heading", { name: /(Today|Tomorrow)/ })).toBeVisible();
+  await resident.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Menu" }).click();
+  const card = resident.getByRole("tabpanel");
+  await expect(card).toBeVisible();
+  // On top: the meal being served now or coming next.
+  const next = resident.getByRole("region", { name: "Next meal" });
+  await expect(next.getByText(/(Serving now|Next up|Tomorrow)$/)).toBeVisible();
+  await expect(next.getByRole("heading", { level: 2 })).toBeVisible();
   // Another day: the card follows the tab chosen.
   const tabs = resident.getByRole("tab");
   await tabs.nth(5).click();
   await expect(tabs.nth(5)).toHaveAttribute("aria-selected", "true");
   await expect(card).toBeVisible();
-  await context.close();
+  // A swipe to the left shows the next day, to the right the one before.
+  const swipe = async (dx: number) => {
+    const box = (await card.boundingBox())!;
+    const [x, y] = [box.x + box.width / 2, box.y + 80];
+    await card.dispatchEvent("pointerdown", { pointerType: "touch", isPrimary: true, clientX: x, clientY: y });
+    await card.dispatchEvent("pointerup", { pointerType: "touch", isPrimary: true, clientX: x + dx, clientY: y + 5 });
+  };
+  await swipe(-120);
+  await expect(tabs.nth(6)).toHaveAttribute("aria-selected", "true");
+  await swipe(120);
+  await swipe(120);
+  await expect(tabs.nth(4)).toHaveAttribute("aria-selected", "true");
 });
-
