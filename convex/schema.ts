@@ -41,9 +41,12 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     ssoManaged: v.optional(v.boolean()),
+    // The person's id in the Livoza Hub, once the hub has synced or signed them in.
+    hubUserId: v.optional(v.string()),
   })
     .index("email", ["email"])
-    .index("phone", ["phone"]),
+    .index("phone", ["phone"])
+    .index("by_hubUserId", ["hubUserId"]),
 
   // Admin Hub sign-in tickets already used (by their one-time `jti`), so a
   // ticket can't be used twice. Rows older than 10 minutes are deleted by a
@@ -89,7 +92,10 @@ export default defineSchema({
     // {deadline} are filled in when it goes out. Absent: defaults apply.
     reminderTitle: v.optional(v.string()),
     reminderMessage: v.optional(v.string()),
+    // The property's id in the Livoza Hub (set by the hub's sync or import).
+    hubPropertyId: v.optional(v.string()),
   })
+    .index("by_hubPropertyId", ["hubPropertyId"])
     .index("by_status", ["status"])
     .index("by_org_slug", ["organizationId", "slug"])
     .index("by_org_status", ["organizationId", "status"]),

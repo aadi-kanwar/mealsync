@@ -30,7 +30,9 @@ export type AuditAction =
   | "staff.password_reset"
   | "staff.role_changed"
   | "sso.signed_in"
-  | "sso.access_revoked";
+  | "sso.access_revoked"
+  | "hub.person_synced"
+  | "hub.property_linked";
 
 /**
  * Appends one audit entry. Callers must never put passwords, tokens or

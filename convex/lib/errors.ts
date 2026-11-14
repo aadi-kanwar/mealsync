@@ -22,7 +22,8 @@ export type AppErrorCode =
   | "CUTOFF_PASSED"
   | "NOT_ELIGIBLE"
   | "CHOOSE_PROPERTY"
-  | "SSO_LINK_EXPIRED";
+  | "SSO_LINK_EXPIRED"
+  | "USE_HUB";
 
 export type AppErrorData = { code: AppErrorCode; message: string };
 
@@ -45,7 +46,8 @@ export const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   NOT_ELIGIBLE: "You aren't counted for meals on that day.",
   CHOOSE_PROPERTY: "Choose a property first.",
   // Deliberately the same for every Admin Hub sign-in failure: never say why.
-  SSO_LINK_EXPIRED: "This link has expired. Open it again from the Admin Hub.",
+  SSO_LINK_EXPIRED: "This link has expired. Open Dine again from the Livoza Hub.",
+  USE_HUB: "Dine now uses the Livoza Hub to sign in. Sign in there, then open Dine.",
 };
 
 export function appError(code: AppErrorCode, message?: string): ConvexError<AppErrorData> {
