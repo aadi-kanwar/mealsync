@@ -8,8 +8,12 @@ import { formatPhoneForDisplay } from "@convex/lib/inputRules";
 import { addDays } from "@convex/lib/time";
 import { dayLabel, type Day, type Meal } from "@/components/app/meal-shared";
 import { PhoneRemindersCard } from "@/components/app/reminders";
-import { ResidentPage, type ResidentContext } from "@/components/app/resident-page";
+import {
+  ResidentPage,
+  type ResidentContext,
+} from "@/components/app/resident-page";
 import { SignOutButton } from "@/components/app/session";
+import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -31,16 +35,26 @@ function Profile(ctx: ResidentContext) {
   const rows: Array<[string, string]> = [
     ["Name", me.profile?.displayName ?? ""],
     ["Room", me.resident?.roomNumber ?? ""],
-    ["Mobile number", me.phone ? formatPhoneForDisplay(me.phone) : "Not available"],
+    [
+      "Mobile number",
+      me.phone ? formatPhoneForDisplay(me.phone) : "Not available",
+    ],
   ];
-  if (me.resident?.validUntil) rows.push(["Last day", formatDay(me.resident.validUntil, "d MMMM yyyy")]);
+  if (me.resident?.validUntil)
+    rows.push(["Last day", formatDay(me.resident.validUntil, "d MMMM yyyy")]);
   return (
     <>
-      <PageHeader title="Profile" description="To change your name or room, please ask the Warden." />
+      <PageHeader
+        title="Profile"
+        description="To change your name or room, please ask the Warden."
+      />
       <Card>
         <dl className="divide-y divide-border">
           {rows.map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between gap-4 px-4 py-3">
+            <div
+              key={label}
+              className="flex items-center justify-between gap-4 px-4 py-3"
+            >
               <dt className="text-sm text-foreground-secondary">{label}</dt>
               <dd className="text-right font-medium">{value}</dd>
             </div>
@@ -56,6 +70,7 @@ function Profile(ctx: ResidentContext) {
       <PhoneRemindersCard />
       <Saves {...ctx} />
       <History {...ctx} />
+      <ThemeToggle full />
       <SignOutButton variant="secondary" />
     </>
   );
@@ -72,7 +87,9 @@ function Saves(ctx: ResidentContext) {
         <h2 id="saves" className="font-serif text-2xl tracking-tight">
           Saves
         </h2>
-        <p className="text-sm text-foreground-secondary">Each time you saved a change, newest first.</p>
+        <p className="text-sm text-foreground-secondary">
+          Each time you saved a change, newest first.
+        </p>
       </div>
       <Card>
         <ul className="divide-y divide-border" aria-label="Your saves">
@@ -99,8 +116,16 @@ function SavesPage({
   onMore,
   today,
   timezone,
-}: ResidentContext & { before: number | undefined; first: boolean; last: boolean; onMore: (before: number) => void }) {
-  const data = useQuery(api.meals.myChanges, before === undefined ? {} : { before });
+}: ResidentContext & {
+  before: number | undefined;
+  first: boolean;
+  last: boolean;
+  onMore: (before: number) => void;
+}) {
+  const data = useQuery(
+    api.meals.myChanges,
+    before === undefined ? {} : { before },
+  );
   if (data === undefined) {
     return (
       <li className="px-4 py-3">
@@ -111,14 +136,23 @@ function SavesPage({
   return (
     <>
       {first && data.saves.length === 0 ? (
-        <li className="px-4 py-3 text-sm text-foreground-secondary">Nothing saved yet.</li>
+        <li className="px-4 py-3 text-sm text-foreground-secondary">
+          Nothing saved yet.
+        </li>
       ) : null}
       {data.saves.map((save) => (
-        <li key={`${save.savedAt}-${save.date}-${save.byStaff ?? ""}`} className="flex flex-col gap-1.5 px-4 py-3">
+        <li
+          key={`${save.savedAt}-${save.date}-${save.byStaff ?? ""}`}
+          className="flex flex-col gap-1.5 px-4 py-3"
+        >
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <span className="text-sm font-medium">{formatDay(save.date, "EEEE d MMM")}</span>
+            <span className="text-sm font-medium">
+              {formatDay(save.date, "EEEE d MMM")}
+            </span>
             <span className="text-xs text-foreground-secondary">
-              {save.byStaff ? `Changed by the Warden (${save.byStaff}) ` : "Saved "}
+              {save.byStaff
+                ? `Changed by the Warden (${save.byStaff}) `
+                : "Saved "}
               {formatWhen(save.savedAt, today, timezone)}
             </span>
           </div>
@@ -128,8 +162,16 @@ function SavesPage({
                 key={change.mealType}
                 className="rounded-sm border border-border bg-subtle px-2 py-0.5 text-xs"
               >
-                <span className="font-medium">{change.meal}:</span> {SELECTION_TEXT[change.from]} →{" "}
-                <span className={cn("font-medium", change.to === "yes" ? "text-primary-text" : "text-foreground")}>
+                <span className="font-medium">{change.meal}:</span>{" "}
+                {SELECTION_TEXT[change.from]} →{" "}
+                <span
+                  className={cn(
+                    "font-medium",
+                    change.to === "yes"
+                      ? "text-primary-text"
+                      : "text-foreground",
+                  )}
+                >
                   {SELECTION_TEXT[change.to]}
                 </span>
               </li>
@@ -139,7 +181,11 @@ function SavesPage({
       ))}
       {last && data.before !== null ? (
         <li>
-          <Button variant="ghost" width="full" onClick={() => onMore(data.before!)}>
+          <Button
+            variant="ghost"
+            width="full"
+            onClick={() => onMore(data.before!)}
+          >
             Show earlier saves
           </Button>
         </li>
@@ -156,7 +202,9 @@ function History({ today, me }: ResidentContext) {
         <h2 id="history" className="font-serif text-2xl tracking-tight">
           History
         </h2>
-        <p className="text-xs text-foreground-muted">B L S D = Breakfast, Lunch, Snacks, Dinner</p>
+        <p className="text-xs text-foreground-muted">
+          B L S D = Breakfast, Lunch, Snacks, Dinner
+        </p>
       </div>
       <Card>
         <ul className="divide-y divide-border" aria-label="Past days">
@@ -198,12 +246,16 @@ function HistoryPage({
     );
   }
   // Newest first; nothing from before the stay started.
-  const days = [...data.days].reverse().filter((day) => stayStart === null || day.date >= stayStart);
+  const days = [...data.days]
+    .reverse()
+    .filter((day) => stayStart === null || day.date >= stayStart);
   const reachedStart = stayStart === null || startDate <= stayStart;
   return (
     <>
       {first && days.length === 0 ? (
-        <li className="px-4 py-3 text-sm text-foreground-secondary">No past days yet.</li>
+        <li className="px-4 py-3 text-sm text-foreground-secondary">
+          No past days yet.
+        </li>
       ) : null}
       {days.map((day) => (
         <HistoryRow key={day.date} day={day} today={today} />
@@ -247,9 +299,11 @@ function Choice({ meal }: { meal: Meal }) {
       aria-label={`${meal.name}: ${choice === null ? "not served" : CHOICE_TEXT[choice]}`}
       className={cn(
         "inline-flex h-7 w-11 items-center justify-center gap-0.5 rounded-sm border text-xs font-medium",
-        choice === "yes" && "border-primary-subtle-border bg-primary-subtle text-primary-text",
+        choice === "yes" &&
+          "border-primary-subtle-border bg-primary-subtle text-primary-text",
         choice === "no" && "border-border bg-subtle text-foreground-secondary",
-        (choice === "none" || choice === null) && "border-dashed border-border-strong text-foreground-muted",
+        (choice === "none" || choice === null) &&
+          "border-dashed border-border-strong text-foreground-muted",
       )}
     >
       {meal.name.charAt(0)}

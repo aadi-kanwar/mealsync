@@ -3,6 +3,7 @@ import { BottomNav } from "@/components/nav/staff-nav";
 import { AppFrame } from "./app-frame";
 import { Brand } from "./brand";
 import { AdminHubLink, SignOutButton } from "./session";
+import { ThemeToggle } from "@/components/app/theme-toggle";
 
 /**
  * Simple frame for resident screens: app name and PG name. Approved
@@ -26,20 +27,29 @@ export function ResidentShell({
             <div className="flex min-w-0 items-center gap-3">
               <Brand />
               {pgName ? (
-                <span className="truncate border-l border-border pl-3 text-xs text-foreground-secondary">{pgName}</span>
+                <span className="truncate border-l border-border pl-3 text-xs text-foreground-secondary">
+                  {pgName}
+                </span>
               ) : null}
             </div>
             {/* With the bottom navigation, logging out lives on the Profile screen. */}
             <div className="flex items-center gap-2">
               <AdminHubLink />
-              {nav ? null : <SignOutButton />}
+              {nav ? null : (
+                <span className="flex items-center gap-1">
+                  <ThemeToggle />
+                  <SignOutButton />
+                </span>
+              )}
             </div>
           </div>
         </header>
       }
       nav={nav ? <BottomNav items={RESIDENT_NAV} everywhere /> : null}
     >
-      <main className="mx-auto flex min-h-full w-full max-w-lg flex-col gap-6 px-4 py-6">{children}</main>
+      <main className="mx-auto flex min-h-full w-full max-w-lg flex-col gap-6 px-4 py-6">
+        {children}
+      </main>
     </AppFrame>
   );
 }
