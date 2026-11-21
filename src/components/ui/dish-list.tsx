@@ -22,7 +22,7 @@ export function DishList({ items, size = "sm", label }: { items: string; size?: 
         <li
           key={`${dish}-${i}`}
           className={cn(
-            "rounded-full border border-border bg-subtle text-foreground",
+            "max-w-full rounded-full border border-border bg-subtle break-words text-foreground",
             size === "md" ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-xs",
           )}
         >
