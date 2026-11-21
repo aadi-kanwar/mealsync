@@ -48,7 +48,7 @@ export function MealCountRow({
           </h2>
           <CutoffBadge meal={meal} now={now} today={today} timezone={timezone} />
         </div>
-        <p className="truncate text-sm text-foreground-secondary">
+        <p className="text-sm break-words text-foreground-secondary">
           <span className="tabular">{formatWindow(meal.serviceTime, meal.endTime)}</span>
           {meal.menu ? ` · ${meal.menu}` : null}
         </p>
@@ -71,11 +71,11 @@ function Count({ label, value, emphasis = false, warn = false }: { label: string
   return (
     <div
       className={cn(
-        "flex flex-col rounded-md border px-3 py-1.5 md:py-2",
+        "flex flex-col justify-between rounded-md border px-3 py-1.5 md:py-2",
         emphasis ? "border-primary-subtle-border bg-primary-subtle" : "border-border bg-surface",
       )}
     >
-      <dt className={cn("truncate text-xs", warn ? "text-warning" : "text-foreground-secondary")}>{label}</dt>
+      <dt className={cn("text-xs leading-tight", warn ? "text-warning" : "text-foreground-secondary")}>{label}</dt>
       <dd className={cn("tabular text-xl font-semibold md:text-2xl", emphasis && "text-primary-text")}>{value}</dd>
     </div>
   );
